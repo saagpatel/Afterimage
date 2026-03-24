@@ -17,6 +17,22 @@ CITIES = {
         "lat_range": (37.70, 37.84),
         "lon_range": (-122.53, -122.35),
     },
+    "chicago": {
+        "lat_range": (41.78, 42.02),
+        "lon_range": (-87.94, -87.52),
+    },
+    "dc": {
+        "lat_range": (38.79, 38.99),
+        "lon_range": (-77.12, -76.91),
+    },
+    "new_orleans": {
+        "lat_range": (29.90, 30.07),
+        "lon_range": (-90.16, -89.99),
+    },
+    "boston": {
+        "lat_range": (42.30, 42.40),
+        "lon_range": (-71.19, -71.00),
+    },
 }
 
 # Manhattan urban core for grid coverage audit

@@ -14,6 +14,7 @@
 		2F8B48CBE1C93957DF84F72C /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = 50EB43A6625B2C76E127DC19 /* Kingfisher */; };
 		38763413656130229FFB98DC /* HistoricalPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319886FCF5043D2B8CCEE58D /* HistoricalPhoto.swift */; };
 		44AEB553A927823FB4B1C607 /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70523CA59F324829C6ADDE17 /* ThumbnailCache.swift */; };
+		5FAE2E0C94E697A0FC918496 /* LocationPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AC26E43B43B435847483C8 /* LocationPickerView.swift */; };
 		631EA3CBD877C48052E6DEA6 /* SpatialQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03AAD21FB09082E9FC32C46 /* SpatialQueryTests.swift */; };
 		63C11743CAC75D876D55A10A /* CameraCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415FC174085FAC524444AF72 /* CameraCoordinator.swift */; };
 		643B884020BF94A2424EB89F /* HeadingFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7A80DB07DE259862CA14A0 /* HeadingFilter.swift */; };
@@ -26,6 +27,7 @@
 		A7FEC7BC119BB3D71DD565C5 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA598C9A73BC77F7E5016C6A /* CameraViewModel.swift */; };
 		AC1A710EF9240B8D8DA4CB20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99D7F6BB006A2C0894AB4646 /* Assets.xcassets */; };
 		B4CA29F121FD5CDE4E924A8C /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04801D6640AF24A5DC73FBA /* TestHelpers.swift */; };
+		B9300BB9A8C03C3E59C20184 /* GalleryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */; };
 		C1E2549CEF552D15FE9D4AA0 /* MatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7F01CAE8D0F1D4ED73DD1B /* MatchingService.swift */; };
 		D5B020C146D3605A78951E1E /* SliderOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD46EEF0578B2B68C5377DF0 /* SliderOverlayView.swift */; };
 		D89F2FD6E1D519BB13D0138C /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547B70E13CE2825A9E582C47 /* CameraView.swift */; };
@@ -58,7 +60,9 @@
 		6CC451AE2F3A37EFD8022AFB /* SpatialQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialQuery.swift; sourceTree = "<group>"; };
 		70523CA59F324829C6ADDE17 /* ThumbnailCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCache.swift; sourceTree = "<group>"; };
 		8E43A24524AD1D94F5B650CA /* ComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonView.swift; sourceTree = "<group>"; };
+		90AC26E43B43B435847483C8 /* LocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerView.swift; sourceTree = "<group>"; };
 		99D7F6BB006A2C0894AB4646 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPickerView.swift; sourceTree = "<group>"; };
 		B68E950EF995F0C25C4A1884 /* ThumbnailFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailFetcher.swift; sourceTree = "<group>"; };
 		BBC00C28812C529E851B9671 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C03AAD21FB09082E9FC32C46 /* SpatialQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialQueryTests.swift; sourceTree = "<group>"; };
@@ -89,6 +93,7 @@
 			children = (
 				8795002D8E08DEA6C9EBC681 /* Camera */,
 				F50342B2067603140253A78E /* Comparison */,
+				5D58CD113BC941596D92F8B3 /* Gallery */,
 				FC65ECA51DFD383CE123F647 /* Matching */,
 			);
 			path = Features;
@@ -120,6 +125,15 @@
 				E04801D6640AF24A5DC73FBA /* TestHelpers.swift */,
 			);
 			path = AfterimageTests;
+			sourceTree = "<group>";
+		};
+		5D58CD113BC941596D92F8B3 /* Gallery */ = {
+			isa = PBXGroup;
+			children = (
+				A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */,
+				90AC26E43B43B435847483C8 /* LocationPickerView.swift */,
+			);
+			path = Gallery;
 			sourceTree = "<group>";
 		};
 		69FADE9FE15ABBCC5A4F347E /* Afterimage */ = {
@@ -328,8 +342,10 @@
 				A7FEC7BC119BB3D71DD565C5 /* CameraViewModel.swift in Sources */,
 				8A5B70C282A32B20A54DBF49 /* ComparisonView.swift in Sources */,
 				02CCF80AFA8FC6956009FD5A /* DatabaseManager.swift in Sources */,
+				B9300BB9A8C03C3E59C20184 /* GalleryPickerView.swift in Sources */,
 				643B884020BF94A2424EB89F /* HeadingFilter.swift in Sources */,
 				38763413656130229FFB98DC /* HistoricalPhoto.swift in Sources */,
+				5FAE2E0C94E697A0FC918496 /* LocationPickerView.swift in Sources */,
 				98F6A4B1139E3632B4C118A3 /* LocationService.swift in Sources */,
 				C1E2549CEF552D15FE9D4AA0 /* MatchingService.swift in Sources */,
 				D5B020C146D3605A78951E1E /* SliderOverlayView.swift in Sources */,

@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 import AVFoundation
 
@@ -26,8 +27,10 @@ struct CameraPreview: UIViewRepresentable {
 
 struct CameraView: View {
     var onCapture: (UIImage) -> Void
+    var onGalleryPicked: ((UIImage, CLLocation?) -> Void)?
 
     @State private var viewModel = CameraViewModel()
+    @State private var showingGalleryPicker = false
 
     var body: some View {
         ZStack {
@@ -52,6 +55,18 @@ struct CameraView: View {
         }
         .onDisappear {
             viewModel.stopSession()
+        }
+        .sheet(isPresented: $showingGalleryPicker) {
+            GalleryPickerView(
+                onPicked: { image, location in
+                    showingGalleryPicker = false
+                    onGalleryPicked?(image, location)
+                },
+                onCancelled: {
+                    showingGalleryPicker = false
+                }
+            )
+            .ignoresSafeArea()
         }
     }
 
@@ -129,12 +144,34 @@ struct CameraView: View {
                 }
             }
 
-            // Capture button (bottom center)
+            // Bottom bar: gallery button (left), capture button (center)
             VStack {
                 Spacer()
-                captureButton
-                    .padding(.bottom, 40)
+                HStack {
+                    galleryButton
+                        .padding(.leading, 40)
+                    Spacer()
+                    captureButton
+                    Spacer()
+                    // Spacer mirror to balance layout
+                    Color.clear
+                        .frame(width: 50, height: 50)
+                        .padding(.trailing, 40)
+                }
+                .padding(.bottom, 40)
             }
+        }
+    }
+
+    private var galleryButton: some View {
+        Button {
+            showingGalleryPicker = true
+        } label: {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 22))
+                .foregroundStyle(.white)
+                .frame(width: 50, height: 50)
+                .background(.white.opacity(0.2), in: Circle())
         }
     }
 
