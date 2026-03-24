@@ -23,7 +23,7 @@ Afterimage is a free iOS app (iPhone-only) that matches a photo you take — or 
 - Vision: always preprocess images to grayscale before `VNGenerateImageFeaturePrintRequest`
 
 ## Current Phase
-**Phase 0: Data Pipeline + Index**
+**Phase 1: Core App — Camera → Match → Slider**
 See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
 ## Key Decisions

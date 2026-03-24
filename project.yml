@@ -1,0 +1,56 @@
+name: Afterimage
+options:
+  bundleIdPrefix: com.afterimage
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "26.3"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    GCC_TREAT_WARNINGS_AS_ERRORS: "YES"
+    SWIFT_STRICT_CONCURRENCY: targeted
+    INFOPLIST_FILE: Afterimage/Info.plist
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: "7.0.0"
+  Kingfisher:
+    url: https://github.com/onevcat/Kingfisher
+    from: "8.0.0"
+
+targets:
+  Afterimage:
+    type: application
+    platform: iOS
+    sources:
+      - path: Afterimage
+    resources:
+      - path: Afterimage/Resources/photos.db
+      - path: Afterimage/Resources/Assets.xcassets
+    dependencies:
+      - package: GRDB
+      - package: Kingfisher
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.afterimage.app
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        SUPPORTS_MACCATALYST: "NO"
+        COMPRESS_PNG_FILES: "NO"
+
+  AfterimageTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AfterimageTests
+    dependencies:
+      - target: Afterimage
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.afterimage.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Afterimage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Afterimage"
+        BUNDLE_LOADER: "$(TEST_HOST)"
