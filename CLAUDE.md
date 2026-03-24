@@ -23,19 +23,19 @@ Afterimage is a free iOS app (iPhone-only) that matches a photo you take — or 
 - Vision: always preprocess images to grayscale before `VNGenerateImageFeaturePrintRequest`
 
 ## Current Phase
-**Phase 0: Data Pipeline + Index**
+**Phase 1: Core App — Camera → Match → Slider**
 See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
 ## Key Decisions
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Index approach | Bundled SQLite (`photos.db`, ~80–200MB) | Live API per photo = 2–4s added latency + offline broken |
-| NYPL source | Space/Time Directory GeoJSON (static download) | NYPL Repo API deprecated August 2026 — no replacement planned |
+| NYC photos source | OldNYC dataset (GitHub, ~25K geolocated NYPL photos) | NYPL Space/Time archived Oct 2024; OldNYC has same photos with GPS coords |
 | Vision role | Re-ranking only (not primary filter) | Vision needs thumbnails downloaded first; can't cold-filter |
 | Heading filter | ±45° window | Magnetometer error in urban canyons can reach ±40°; ±30° drops valid matches |
 | iOS minimum | iOS 17 | `VNFeaturePrintObservation` 768-dim normalized vectors require iOS 17 |
 | Composite score | GPS/heading 70% + Vision 30% | Historical photos are stylistically dissimilar; Vision alone unreliable |
-| V1 cities | NYC, SF, Chicago, DC, New Orleans, Boston | Highest LoC + NYPL photo density with GPS metadata |
+| V1 cities | NYC, SF, Chicago, DC, New Orleans, Boston | Highest OldNYC + Wikimedia photo density with GPS metadata |
 | Monetization | Free, no paywall | Viral sharing is the growth mechanic — paywalls kill it |
 
 ## Do NOT
