@@ -298,7 +298,7 @@ async def ingest() -> Path:
 
     async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
         # Run SF first for early density read (smaller, faster)
-        for city_name in ["sf", "nyc"]:
+        for city_name in ["sf", "nyc", "chicago", "dc", "new_orleans", "boston"]:
             city_config = CITIES[city_name]
             records = await ingest_city(session, city_name, city_config, seen_pageids)
             all_records.extend(records)

@@ -22,9 +22,18 @@ struct RootView: View {
     var body: some View {
         switch appState.currentScreen {
         case .camera:
-            CameraView { photo in
-                appState.onPhotoCaptured(photo)
-            }
+            CameraView(
+                onCapture: { photo in
+                    appState.onPhotoCaptured(photo)
+                },
+                onGalleryPicked: { image, location in
+                    if let location {
+                        appState.onGalleryPhotoWithLocation(image, location: location)
+                    } else {
+                        appState.onGalleryPhotoNeedsLocation(image)
+                    }
+                }
+            )
             .task {
                 do {
                     let count = try await DatabaseManager.shared.photoCount
@@ -33,6 +42,17 @@ struct RootView: View {
                     print("DB error: \(error)")
                 }
             }
+
+        case .galleryLocationPicker(let image):
+            LocationPickerView(
+                photo: image,
+                onConfirmed: { location in
+                    appState.onGalleryLocationConfirmed(image, location: location)
+                },
+                onCancelled: {
+                    appState.currentScreen = .camera
+                }
+            )
 
         case .matching(let photo):
             MatchingProgressView(photo: photo)
@@ -68,17 +88,7 @@ struct MatchingProgressView: View {
                     .foregroundStyle(.secondary)
 
             case .noResults:
-                Image(systemName: "photo.badge.exclamationmark")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
-                Text("No historical photos found here")
-                    .font(.headline)
-                Text("Try a different location")
-                    .foregroundStyle(.secondary)
-                Button("Back to Camera") {
-                    appState.currentScreen = .camera
-                }
-                .buttonStyle(.bordered)
+                noResultsView
 
             case .error(let message):
                 Image(systemName: "exclamationmark.triangle")
@@ -97,5 +107,26 @@ struct MatchingProgressView: View {
             }
         }
         .padding(32)
+    }
+
+    private var noResultsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "photo.badge.exclamationmark")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("No historical photos found here")
+                .font(.headline)
+            if let cityDescription = appState.nearestCityDescription() {
+                Text("The nearest covered city is \(cityDescription).")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button("Try a Different Location") {
+                appState.currentScreen = .camera
+            }
+            .buttonStyle(.bordered)
+            .padding(.top, 4)
+        }
     }
 }
