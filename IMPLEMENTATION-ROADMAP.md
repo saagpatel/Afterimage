@@ -119,8 +119,8 @@ afterimage/
 ```sql
 -- Primary historical photo index table
 CREATE TABLE historical_photos (
-    id                  TEXT PRIMARY KEY,     -- "{source}:{source_id}" e.g. "loc:ppoc_12345"
-    source              TEXT NOT NULL,        -- "loc" | "wikimedia" | "nypl"
+    id                  TEXT PRIMARY KEY,     -- "{source}:{source_id}" e.g. "oldnyc:730340f"
+    source              TEXT NOT NULL,        -- "oldnyc" | "wikimedia" | "flickr_commons"
     title               TEXT NOT NULL,
     description         TEXT,
     date_text           TEXT,                 -- Human-readable: "circa 1920", "1887"
@@ -156,7 +156,7 @@ import GRDB
 import CoreLocation
 
 enum PhotoSource: String, Codable, DatabaseValueConvertible {
-    case loc, wikimedia, nypl
+    case oldnyc, wikimedia, flickrCommons
 }
 
 enum HeadingConfidence: String, Codable, DatabaseValueConvertible {
@@ -209,23 +209,23 @@ struct MatchCandidate: Identifiable {
 
 ### API Contracts
 
-**External APIs (used at build time by Python pipeline — NOT called from the app at runtime):**
+**External data sources (used at build time by Python pipeline — NOT called from the app at runtime):**
 
-| Source | Endpoint | Method | Auth | Rate Limit | Pagination | Notes |
-|--------|----------|--------|------|------------|------------|-------|
-| LoC PPOC | `https://www.loc.gov/pictures/?q={city}&fo=json&at=results&c=100&sp={page}` | GET | None | ~200 req/day observed; use 1 req/sec | `sp` param (1-indexed page) | Extract `coordinates`, `date`, `image.thumb`, `aka` fields |
-| LoC loc.gov | `https://www.loc.gov/collections/habs-haer-hals/?fo=json&at=results&c=100&sp={page}` | GET | None | ~200 req/day; 1 req/sec | `sp` param | Filter records with lat/lon in `location` field |
-| Wikimedia Commons geosearch | `https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&gscoord={lat}\|{lon}&gsradius=5000&gsnamespace=6&gslimit=500&format=json` | GET | None | Polite: 1 req/sec | None (tile bounding boxes manually) | `gsnamespace=6` = File namespace; max radius 10,000m |
-| Wikimedia file info | `https://commons.wikimedia.org/w/api.php?action=query&titles={title}&prop=imageinfo&iiprop=url\|extmetadata&iiurlwidth=300&format=json` | GET | None | 1 req/sec | None | Extract `url` (thumbnail) and `ImageDescription`, `DateTimeOriginal` from extmetadata |
-| NYPL Space/Time | Static GeoJSON file download from `https://spacetime.nypl.org/` datasets page | GET | None | N/A — one-time download | N/A | Fields: `geometry.coordinates`, `properties.heading`, `properties.date`, `properties.image_url` |
+| Source | Endpoint | Method | Auth | Rate Limit | Notes |
+|--------|----------|--------|------|------------|-------|
+| OldNYC (NYPL) | `https://raw.githubusercontent.com/nypl-spacetime/oldnyc/master/nyc-records.json` | GET | None | N/A — one-time 20MB download | ~43K records, ~25K with GPS. Fields: `extracted.latlon`, `title`, `date`, `folder`, `id` |
+| Wikimedia Commons | Combined geosearch+imageinfo query to `https://commons.wikimedia.org/w/api.php` | GET | None | Polite: 1 req/sec | `generator=geosearch` + `prop=imageinfo`. Filter by DateTimeOriginal < 1970 + historical category keywords. Tile bounding boxes at 700m spacing. |
+
+**Dropped sources (validated as non-viable March 2026):**
+- ~~LoC PPOC API~~ — GPS coordinates are always empty strings in API results
+- ~~NYPL Space/Time Directory~~ — archived October 2024, no downloadable GeoJSON
 
 **Runtime thumbnail fetch (called from app):**
 
 | Source | URL Pattern | Max Size |
 |--------|-------------|----------|
-| LoC IIIF | `https://tile.loc.gov/image-services/iiif/{item_id}/full/300,/0/default.jpg` | 300px wide |
-| Wikimedia | `https://commons.wikimedia.org/wiki/Special:FilePath/{encoded_filename}?width=300` | 300px wide |
-| NYPL | Direct URL from GeoJSON `image_url` field | Pre-sized |
+| OldNYC (NYPL) | `https://images.nypl.org/index.php?id={photo_id}&t=r` | ~300px wide |
+| Wikimedia | `thumburl` from imageinfo API (CDN-backed) | 300px wide |
 
 ### Dependencies
 
@@ -304,40 +304,35 @@ pip install aiohttp requests Pillow tqdm geojson
 1. Create `DataPipeline/` directory structure and `requirements.txt`. Install deps.
    - **Acceptance:** `pip install -r requirements.txt` completes without errors.
 
-2. Write `ingest_loc.py` — paginate LoC PPOC API for NYC and SF using city name query (`q=new+york+city`, `q=san+francisco`). Extract records with `coordinates` field containing valid lat/lon (decimal degrees). Write to `staging_loc.csv` with columns: `id, title, date_text, date_year, lat, lon, heading, thumbnail_url, full_res_url, attribution`.
-   - **Acceptance:** Script completes without crash. `staging_loc.csv` contains ≥500 rows with non-null lat/lon for NYC+SF combined. Print count of records skipped due to missing coordinates — log this number.
+2. Write `ingest_oldnyc.py` — download `nyc-records.json` (20MB, ~43K records) from OldNYC GitHub repo. Filter records with `extracted.latlon` present. Parse heading from direction words in titles (e.g., "- Northeast.", "looking west"). Validate date_year in 1800–1980 range (496 records have garbage 5-digit dates). Build thumbnail URLs via `images.nypl.org`. Write to `staging_oldnyc.csv`.
+   - **Acceptance:** `staging_oldnyc.csv` contains ≥25,000 rows with non-null lat/lon. 20 random thumbnail URLs spot-checked return 200 + image/jpeg. ≥25% of records have extracted heading.
 
-3. Write `ingest_wikimedia.py` — tile the bounding boxes of NYC (40.47–40.92°N, 74.26–73.70°W) and SF (37.70–37.84°N, 122.53–122.35°W) into 1km² cells. For each cell center, call Wikimedia geosearch (`gsradius=500`, `gsnamespace=6`, `gslimit=500`). Deduplicate by `pageid`. Then fetch `imageinfo` for each unique page to get `url` (thumbnail) and `extmetadata`. Write to `staging_wikimedia.csv`.
-   - **Acceptance:** ≥2,000 rows in `staging_wikimedia.csv` for NYC+SF combined. Spot-check 20 random `thumbnail_url` values — manually confirm URLs resolve and images are visually historical (not modern uploads).
+3. Write `ingest_wikimedia.py` — tile NYC and SF bounding boxes at 700m spacing. For each tile, call combined geosearch+imageinfo API query (one request per tile). Filter for historical content: DateTimeOriginal year < 1970, or HABS/HAER/historical category keywords. Reject modern indicators (Self-published, Panoramio, Uploaded with Mobile). Deduplicate by `pageid` across overlapping tiles. Rate limit: 1 req/sec. Run SF first for early density read.
+   - **Acceptance:** `staging_wikimedia.csv` contains records for both NYC and SF. SF records ≥10 (if <200, log warning to trigger Flickr Commons contingency).
 
-4. Write `ingest_nypl.py` — download NYPL Space/Time Directory GeoJSON from the datasets page. Parse `features` array. Filter: `properties.date_year < 1980` AND `geometry` is valid Point. Extract lat/lon from `geometry.coordinates`, heading from `properties.heading` (nullable), image URL from `properties.image_url`. Write to `staging_nypl.csv`.
-   - **Acceptance:** ≥1,000 rows in `staging_nypl.csv`. At least 40% of rows have non-null heading value.
+4. Write `build_index.py` — load all staging CSVs. Cross-source deduplication: for records within 10m (Haversine) AND same decade, keep the one with higher heading_confidence, then more complete metadata. Build `photos.db` with schema and indexes.
+   - **Acceptance:** `python build_index.py` exits 0. `PRAGMA integrity_check` → `ok`. `SELECT source, COUNT(*) FROM historical_photos GROUP BY source` → ≥2 sources. Total records ≥3,000.
 
-5. Write `build_index.py` — load all 3 staging CSVs. Deduplicate: for any two records from different sources within 10m of each other AND same source attribution, keep the one with higher `heading_confidence`. Write final merged data to `photos.db` using schema from Data Model section above.
-   - **Acceptance:** `python build_index.py` exits 0. Run: `sqlite3 photos.db "PRAGMA integrity_check"` → output `ok`. Run: `sqlite3 photos.db "SELECT source, COUNT(*) FROM historical_photos GROUP BY source"` → 3 rows, all 3 sources present with counts ≥500 each. Total records ≥3,000.
+5. Write `audit_coverage.py` — compute Manhattan 100m grid cell coverage, run spot queries, validate date ranges, report per-city and per-source breakdowns.
+   - **Acceptance:** Manhattan grid coverage ≥25%. Times Square spot query ≥20. SF Mission spot query ≥10.
 
-6. Run coverage density audit — for NYC and SF, compute the number of 100m × 100m grid cells in the urban core that contain ≥1 photo. Print percentage.
-   - **Acceptance:** ≥25% of grid cells in Manhattan (40.70–40.82°N, 74.02–73.93°W) have ≥1 photo. If below 25%, widen Wikimedia geosearch radius to 1,000m and re-run ingestion before proceeding to Phase 1.
-
-7. Run spot validation queries:
-   - `SELECT COUNT(*) FROM historical_photos WHERE lat BETWEEN 37.77 AND 37.80 AND lon BETWEEN -122.42 AND -122.39` (SF Mission/Castro area) → expect ≥50
-   - `SELECT COUNT(*) FROM historical_photos WHERE lat BETWEEN 40.75 AND 40.76 AND lon BETWEEN -73.99 AND -73.97` (Times Square area) → expect ≥20
-   - **Acceptance:** Both queries return values ≥ stated thresholds.
+6. (Contingency) Write `ingest_flickr.py` — only if Wikimedia SF yield <200. Use `flickr.photos.search` with `is_commons=1`, geo params, date filtering. Requires free API key.
 
 **Verification checklist:**
 - [ ] `python build_index.py` → exits 0, no unhandled exceptions
 - [ ] `sqlite3 photos.db "PRAGMA integrity_check"` → `ok`
 - [ ] `sqlite3 photos.db "SELECT COUNT(*) FROM historical_photos"` → ≥3,000
-- [ ] `sqlite3 photos.db "SELECT source, COUNT(*) FROM historical_photos GROUP BY source"` → 3 rows
+- [ ] `sqlite3 photos.db "SELECT source, COUNT(*) FROM historical_photos GROUP BY source"` → ≥2 sources
 - [ ] 20 random thumbnail URLs manually verified: load + are visually historical
 - [ ] NYC Times Square spot query → ≥20 results
-- [ ] SF Mission spot query → ≥50 results
-- [ ] Coverage density ≥25% in Manhattan grid
+- [ ] SF Mission spot query → ≥10 results
+- [ ] Manhattan grid coverage ≥25%
+- [ ] No records with date_year outside 1800–1980
 
 **Risks:**
-- LoC coordinate quality is inconsistent — many records have city-level coords only (e.g., all "New York" records pinned to City Hall).
-  - **Mitigation:** Filter out records where coordinate precision is <4 decimal places (≈11m precision). These are city-level pins, not photo-location pins.
-  - **Fallback:** If LoC yields <300 usable records after precision filter, supplement with additional Wikimedia tile coverage at 500m radius.
+- SF coverage may be sparse (Wikimedia only source for SF). If <200 photos, trigger Flickr Commons contingency or drop SF from Phase 0 cities.
+  - **Mitigation:** Run SF tiles first for early read. Implement `ingest_flickr.py` as backup.
+  - **Fallback:** Ship NYC-only for Phase 0 validation; add SF in Phase 2 with expanded sources.
 
 ---
 
@@ -509,9 +504,9 @@ func computeCompositeScores(candidates: [MatchCandidate]) -> [MatchCandidate] {
 
 | Risk | Severity | Phase | Mitigation | Fallback |
 |------|----------|-------|------------|----------|
-| LoC geo-coordinate precision too coarse | HIGH | 0 | Filter records with <4 decimal place precision | Supplement with more Wikimedia tiles |
+| SF coverage sparse (Wikimedia-only source) | HIGH | 0 | Run SF tiles first; Flickr Commons contingency | Drop SF from Phase 0, ship NYC-only |
 | Vision distances uniformly high for historical photos | HIGH | 1 | Benchmark in scratch playground before full implementation | Remove Vision, go 100% geo scoring |
 | Coverage density below 25% in urban cores | HIGH | 0 | Audit before proceeding; adjust radius | Cannot ship v1 without passing density gate |
-| NYPL Space/Time dataset unavailable | MEDIUM | 0 | Fall back to Wikimedia only for NYC | NYC coverage still viable from LoC + Wikimedia |
+| NYPL image server down | MEDIUM | 0 | Server confirmed live March 2026; spot-check during ingestion | OldNYC `url` field → `digitalgallery.nypl.org` fallback |
 | Magnetometer error in urban canyons | MEDIUM | 1 | ±45° filter; skip if headingAccuracy > 45° | Heading filter always skipped; GPS-only matching |
 | `photos.db` exceeds 200MB bundle size | MEDIUM | 2 | Per-city SQLite files loaded on demand | Ship only 3 highest-density cities in v1 |
