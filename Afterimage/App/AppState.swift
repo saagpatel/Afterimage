@@ -6,6 +6,7 @@ import SwiftUI
 final class AppState {
     enum Screen {
         case camera
+        case citySelector
         case galleryLocationPicker(UIImage)
         case matching(UIImage)
         case comparison(UIImage, MatchCandidate)
@@ -72,6 +73,19 @@ final class AppState {
         }
     }
 
+    // MARK: - City browse flow
+
+    /// Called when the user picks a city from CitySelectorView.
+    /// Runs matching centred on the city with a placeholder image (browse/explore mode).
+    func onCitySelected(_ city: CityInfo) {
+        let location = CLLocation(latitude: city.coordinate.latitude, longitude: city.coordinate.longitude)
+        let placeholderImage = UIImage.placeholderWhite
+        currentScreen = .matching(placeholderImage)
+        Task {
+            await runMatching(photo: placeholderImage, location: location, heading: nil)
+        }
+    }
+
     // MARK: - Gallery flow
 
     /// Called after gallery picker successfully extracted GPS from the photo asset.
@@ -114,7 +128,7 @@ final class AppState {
         }
     }
 
-    // MARK: - Nearest city
+    // MARK: - Nearest city (no-match description)
 
     /// Returns a human-readable description of the nearest covered city and its distance,
     /// e.g. "New York City (230 km away)". Used in the no-match state.
@@ -143,4 +157,17 @@ final class AppState {
             return "\(nearest.name) (\(Int(km)) km away)"
         }
     }
+}
+
+// MARK: - UIImage helpers
+
+extension UIImage {
+    /// 1×1 white image used as a placeholder when entering city browse mode (no user photo).
+    static let placeholderWhite: UIImage = {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
+        return renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
+    }()
 }

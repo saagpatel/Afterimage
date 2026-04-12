@@ -32,6 +32,9 @@ struct RootView: View {
                     } else {
                         appState.onGalleryPhotoNeedsLocation(image)
                     }
+                },
+                onBrowseCities: {
+                    appState.currentScreen = .citySelector
                 }
             )
             .task {
@@ -42,6 +45,16 @@ struct RootView: View {
                     print("DB error: \(error)")
                 }
             }
+
+        case .citySelector:
+            CitySelectorView(
+                onCitySelected: { city in
+                    appState.onCitySelected(city)
+                },
+                onDismissed: {
+                    appState.currentScreen = .camera
+                }
+            )
 
         case .galleryLocationPicker(let image):
             LocationPickerView(
