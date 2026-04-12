@@ -27,6 +27,7 @@ struct HistoricalPhoto: Codable, FetchableRecord, PersistableRecord, Identifiabl
     let dateYear: Int?
     let lat: Double
     let lon: Double
+    let city: String?
     let heading: Double?
     let headingConfidence: HeadingConfidence
     let thumbnailURL: String
@@ -42,7 +43,7 @@ struct HistoricalPhoto: Codable, FetchableRecord, PersistableRecord, Identifiabl
         case id, source, title, description
         case dateText = "date_text"
         case dateYear = "date_year"
-        case lat, lon, heading
+        case lat, lon, city, heading
         case headingConfidence = "heading_confidence"
         case thumbnailURL = "thumbnail_url"
         case fullResURL = "full_res_url"
@@ -55,6 +56,7 @@ extension HistoricalPhoto {
     enum Columns {
         static let lat = Column(CodingKeys.lat)
         static let lon = Column(CodingKeys.lon)
+        static let city = Column(CodingKeys.city)
         static let heading = Column(CodingKeys.heading)
     }
 }

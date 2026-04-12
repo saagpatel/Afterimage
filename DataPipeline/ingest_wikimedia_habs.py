@@ -294,6 +294,7 @@ async def ingest() -> Path:
                 "date_year": date_year if date_year else "",
                 "lat": lat,
                 "lon": lon,
+                "city": "sf",
                 "heading": "",
                 "heading_confidence": "low",
                 "thumbnail_url": thumbnail_url,
