@@ -48,7 +48,7 @@ GRID_CELL_LON = 0.0012   # ~100m east-west at 40.7°N
 # Staging CSV columns
 STAGING_COLUMNS = [
     "id", "source", "title", "description", "date_text", "date_year",
-    "lat", "lon", "heading", "heading_confidence",
+    "lat", "lon", "city", "heading", "heading_confidence",
     "thumbnail_url", "full_res_url", "attribution", "rights_uri",
 ]
 
@@ -108,4 +108,24 @@ DIRECTION_MAP = {
     "northwest": 315, "nw": 315,
     "northward": 0, "southward": 180,
     "eastward": 90, "westward": 270,
+}
+
+# Flickr Commons
+FLICKR_API_URL = "https://www.flickr.com/services/rest/"
+FLICKR_RATE_LIMIT_SEC = 1.0
+FLICKR_MAX_PER_CITY = 2000
+FLICKR_PER_PAGE = 500
+FLICKR_ATTRIBUTION_PREFIX = "Flickr Commons"
+FLICKR_USER_AGENT = "AfterimageBot/0.1 (historical photo index builder)"
+FLICKR_LICENSE_MAP = {
+    "1": "https://creativecommons.org/licenses/by-nc-sa/2.0/",
+    "2": "https://creativecommons.org/licenses/by-nc/2.0/",
+    "3": "https://creativecommons.org/licenses/by-nc-nd/2.0/",
+    "4": "https://creativecommons.org/licenses/by/2.0/",
+    "5": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "6": "https://creativecommons.org/licenses/by-nd/2.0/",
+    "7": "https://flickr.com/commons/usage/",  # No known copyright restrictions
+    "8": "https://www.usa.gov/government-works",  # US Government Work
+    "9": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "10": "https://creativecommons.org/publicdomain/mark/1.0/",
 }
