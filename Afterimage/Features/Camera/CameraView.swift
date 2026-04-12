@@ -28,6 +28,7 @@ struct CameraPreview: UIViewRepresentable {
 struct CameraView: View {
     var onCapture: (UIImage) -> Void
     var onGalleryPicked: ((UIImage, CLLocation?) -> Void)?
+    var onBrowseCities: (() -> Void)?
 
     @State private var viewModel = CameraViewModel()
     @State private var showingGalleryPicker = false
@@ -153,13 +154,23 @@ struct CameraView: View {
                     Spacer()
                     captureButton
                     Spacer()
-                    // Spacer mirror to balance layout
-                    Color.clear
-                        .frame(width: 50, height: 50)
+                    browseCitiesButton
                         .padding(.trailing, 40)
                 }
                 .padding(.bottom, 40)
             }
+        }
+    }
+
+    private var browseCitiesButton: some View {
+        Button {
+            onBrowseCities?()
+        } label: {
+            Image(systemName: "map")
+                .font(.system(size: 22))
+                .foregroundStyle(.white)
+                .frame(width: 50, height: 50)
+                .background(.white.opacity(0.2), in: Circle())
         }
     }
 

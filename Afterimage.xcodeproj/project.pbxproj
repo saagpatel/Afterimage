@@ -27,6 +27,7 @@
 		A7FEC7BC119BB3D71DD565C5 /* CameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA598C9A73BC77F7E5016C6A /* CameraViewModel.swift */; };
 		AC1A710EF9240B8D8DA4CB20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 99D7F6BB006A2C0894AB4646 /* Assets.xcassets */; };
 		B4CA29F121FD5CDE4E924A8C /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04801D6640AF24A5DC73FBA /* TestHelpers.swift */; };
+		7A3D4F1B6B9F4E24A00C8635 /* CitySelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32D15A4750474363BB0A5AF7 /* CitySelectorView.swift */; };
 		B9300BB9A8C03C3E59C20184 /* GalleryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */; };
 		C1E2549CEF552D15FE9D4AA0 /* MatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7F01CAE8D0F1D4ED73DD1B /* MatchingService.swift */; };
 		D5B020C146D3605A78951E1E /* SliderOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD46EEF0578B2B68C5377DF0 /* SliderOverlayView.swift */; };
@@ -62,6 +63,7 @@
 		8E43A24524AD1D94F5B650CA /* ComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonView.swift; sourceTree = "<group>"; };
 		90AC26E43B43B435847483C8 /* LocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerView.swift; sourceTree = "<group>"; };
 		99D7F6BB006A2C0894AB4646 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		32D15A4750474363BB0A5AF7 /* CitySelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitySelectorView.swift; sourceTree = "<group>"; };
 		A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPickerView.swift; sourceTree = "<group>"; };
 		B68E950EF995F0C25C4A1884 /* ThumbnailFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailFetcher.swift; sourceTree = "<group>"; };
 		BBC00C28812C529E851B9671 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 		5D58CD113BC941596D92F8B3 /* Gallery */ = {
 			isa = PBXGroup;
 			children = (
+				32D15A4750474363BB0A5AF7 /* CitySelectorView.swift */,
 				A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */,
 				90AC26E43B43B435847483C8 /* LocationPickerView.swift */,
 			);
@@ -342,6 +345,7 @@
 				A7FEC7BC119BB3D71DD565C5 /* CameraViewModel.swift in Sources */,
 				8A5B70C282A32B20A54DBF49 /* ComparisonView.swift in Sources */,
 				02CCF80AFA8FC6956009FD5A /* DatabaseManager.swift in Sources */,
+				7A3D4F1B6B9F4E24A00C8635 /* CitySelectorView.swift in Sources */,
 				B9300BB9A8C03C3E59C20184 /* GalleryPickerView.swift in Sources */,
 				643B884020BF94A2424EB89F /* HeadingFilter.swift in Sources */,
 				38763413656130229FFB98DC /* HistoricalPhoto.swift in Sources */,
