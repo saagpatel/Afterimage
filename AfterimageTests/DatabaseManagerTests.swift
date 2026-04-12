@@ -21,7 +21,7 @@ final class DatabaseManagerTests: XCTestCase {
         }
         let required = [
             "id", "source", "title", "description",
-            "date_text", "date_year", "lat", "lon",
+            "date_text", "date_year", "lat", "lon", "city",
             "heading", "heading_confidence",
             "thumbnail_url", "full_res_url",
             "attribution", "rights_uri", "created_at",
@@ -66,6 +66,7 @@ final class DatabaseManagerTests: XCTestCase {
             dateYear: 1890,
             lat: 40.7061,
             lon: -73.9969,
+            city: "nyc",
             heading: 45.0,
             headingConfidence: .high,
             thumbnailURL: "https://upload.wikimedia.org/thumb.jpg",
