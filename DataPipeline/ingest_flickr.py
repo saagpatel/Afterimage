@@ -142,7 +142,7 @@ def _extract_record(photo: dict, city_name: str) -> dict | None:
 
     return {
         "id": f"flickr:{photo_id}",
-        "source": "flickr",
+        "source": "flickr_commons",
         "title": title,
         "description": re.sub(r"<[^>]+>", "", description).strip()[:500],
         "date_text": date_taken[:100],
