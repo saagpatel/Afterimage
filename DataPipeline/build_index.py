@@ -8,7 +8,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from config import MAX_YEAR, MIN_YEAR, OUTPUT_DIR, STAGING_COLUMNS, STAGING_DIR
+from config import CITIES, MAX_YEAR, MIN_YEAR, OUTPUT_DIR, STAGING_COLUMNS, STAGING_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS historical_photos (
     date_year           INTEGER,
     lat                 REAL NOT NULL,
     lon                 REAL NOT NULL,
+    city                TEXT,
     heading             REAL,
     heading_confidence  TEXT NOT NULL DEFAULT 'low',
     thumbnail_url       TEXT NOT NULL,
@@ -37,7 +38,18 @@ CREATE INDEX IF NOT EXISTS idx_lon ON historical_photos(lon);
 CREATE INDEX IF NOT EXISTS idx_latlon ON historical_photos(lat, lon);
 CREATE INDEX IF NOT EXISTS idx_heading ON historical_photos(heading);
 CREATE INDEX IF NOT EXISTS idx_source ON historical_photos(source);
+CREATE INDEX IF NOT EXISTS idx_city ON historical_photos(city);
 """
+
+
+def infer_city(lat: float, lon: float) -> str:
+    """Infer city name from GPS coordinates using bounding boxes."""
+    for city_name, bounds in CITIES.items():
+        lat_min, lat_max = bounds["lat_range"]
+        lon_min, lon_max = bounds["lon_range"]
+        if lat_min <= lat <= lat_max and lon_min <= lon <= lon_max:
+            return city_name
+    return "unknown"
 
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -167,9 +179,9 @@ def build_db(rows: list[dict], db_path: Path) -> None:
     insert_sql = """
     INSERT OR IGNORE INTO historical_photos
         (id, source, title, description, date_text, date_year,
-         lat, lon, heading, heading_confidence,
+         lat, lon, city, heading, heading_confidence,
          thumbnail_url, full_res_url, attribution, rights_uri)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     batch = []
@@ -183,6 +195,7 @@ def build_db(rows: list[dict], db_path: Path) -> None:
             row.get("date_year"),
             row["lat"],
             row["lon"],
+            infer_city(row["lat"], row["lon"]),
             row.get("heading"),
             row.get("heading_confidence", "low"),
             row["thumbnail_url"],
@@ -206,12 +219,17 @@ def build_db(rows: list[dict], db_path: Path) -> None:
     cursor = conn.execute("SELECT source, COUNT(*) FROM historical_photos GROUP BY source")
     source_counts = cursor.fetchall()
 
+    cursor = conn.execute("SELECT city, COUNT(*) FROM historical_photos GROUP BY city ORDER BY COUNT(*) DESC")
+    city_counts = cursor.fetchall()
+
     conn.close()
 
     log.info("Database built: %s", db_path)
     log.info("Total records: %d", total)
     for source, count in source_counts:
         log.info("  %s: %d", source, count)
+    for city, count in city_counts:
+        log.info("  city %s: %d", city, count)
     log.info("Integrity check: %s", integrity)
 
 

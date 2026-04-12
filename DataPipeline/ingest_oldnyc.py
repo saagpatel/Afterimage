@@ -166,6 +166,7 @@ def ingest() -> Path:
             "date_year": date_year if date_year else "",
             "lat": lat,
             "lon": lon,
+            "city": "nyc",
             "heading": heading if heading is not None else "",
             "heading_confidence": heading_confidence,
             "thumbnail_url": OLDNYC_THUMBNAIL_TEMPLATE.format(photo_id=photo_id),

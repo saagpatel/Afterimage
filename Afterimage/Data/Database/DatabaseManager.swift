@@ -43,6 +43,7 @@ final class DatabaseManager: Sendable {
             date_year           INTEGER,
             lat                 REAL NOT NULL,
             lon                 REAL NOT NULL,
+            city                TEXT,
             heading             REAL,
             heading_confidence  TEXT NOT NULL DEFAULT 'low',
             thumbnail_url       TEXT NOT NULL,

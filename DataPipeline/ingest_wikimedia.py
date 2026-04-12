@@ -179,6 +179,7 @@ def extract_record(page: dict, geosearch_lat: float, geosearch_lon: float) -> di
         "date_year": year if year else "",
         "lat": geosearch_lat,
         "lon": geosearch_lon,
+        "city": "",
         "heading": "",
         "heading_confidence": "low",
         "thumbnail_url": thumbnail_url,
