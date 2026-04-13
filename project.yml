@@ -32,6 +32,7 @@ targets:
     resources:
       - path: Afterimage/Resources/photos.db
       - path: Afterimage/Resources/Assets.xcassets
+      - path: Afterimage/Resources/PrivacyInfo.xcprivacy
     dependencies:
       - package: GRDB
       - package: Kingfisher
