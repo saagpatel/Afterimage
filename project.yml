@@ -14,6 +14,7 @@ settings:
     GCC_TREAT_WARNINGS_AS_ERRORS: "YES"
     SWIFT_STRICT_CONCURRENCY: targeted
     INFOPLIST_FILE: Afterimage/Info.plist
+    DEVELOPMENT_TEAM: 3TGZFKFNA4
 
 packages:
   GRDB:
