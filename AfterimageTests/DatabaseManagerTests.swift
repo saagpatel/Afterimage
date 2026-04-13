@@ -40,10 +40,10 @@ final class DatabaseManagerTests: XCTestCase {
         let fetched = try db.read { db in
             try HistoricalPhoto.fetchOne(db, key: "test:1")
         }
-        XCTAssertNotNil(fetched)
-        XCTAssertEqual(fetched?.id, "test:1")
-        XCTAssertEqual(fetched?.lat, 40.75, accuracy: 0.0001)
-        XCTAssertEqual(fetched?.lon, -73.98, accuracy: 0.0001)
+        let f = try XCTUnwrap(fetched)
+        XCTAssertEqual(f.id, "test:1")
+        XCTAssertEqual(f.lat, 40.75, accuracy: 0.0001)
+        XCTAssertEqual(f.lon, -73.98, accuracy: 0.0001)
     }
 
     func testFetchCountReturnsCorrectCount() throws {
@@ -79,17 +79,17 @@ final class DatabaseManagerTests: XCTestCase {
         let fetched = try db.read { db in
             try HistoricalPhoto.fetchOne(db, key: "full-fields")
         }
-        XCTAssertNotNil(fetched)
-        XCTAssertEqual(fetched?.source, .wikimedia)
-        XCTAssertEqual(fetched?.title, "Brooklyn Bridge 1890")
-        XCTAssertEqual(fetched?.description, "Looking north from Manhattan")
-        XCTAssertEqual(fetched?.dateText, "circa 1890")
-        XCTAssertEqual(fetched?.dateYear, 1890)
-        XCTAssertEqual(fetched?.heading, 45.0, accuracy: 0.001)
-        XCTAssertEqual(fetched?.headingConfidence, .high)
-        XCTAssertEqual(fetched?.thumbnailURL, "https://upload.wikimedia.org/thumb.jpg")
-        XCTAssertEqual(fetched?.fullResURL, "https://upload.wikimedia.org/full.jpg")
-        XCTAssertEqual(fetched?.attribution, "Library of Congress")
+        let f = try XCTUnwrap(fetched)
+        XCTAssertEqual(f.source, .wikimedia)
+        XCTAssertEqual(f.title, "Brooklyn Bridge 1890")
+        XCTAssertEqual(f.description, "Looking north from Manhattan")
+        XCTAssertEqual(f.dateText, "circa 1890")
+        XCTAssertEqual(f.dateYear, 1890)
+        XCTAssertEqual(f.heading ?? 0, 45.0, accuracy: 0.001)
+        XCTAssertEqual(f.headingConfidence, .high)
+        XCTAssertEqual(f.thumbnailURL, "https://upload.wikimedia.org/thumb.jpg")
+        XCTAssertEqual(f.fullResURL, "https://upload.wikimedia.org/full.jpg")
+        XCTAssertEqual(f.attribution, "Library of Congress")
     }
 
     func testInsertPreservesNilOptionalFields() throws {
@@ -190,7 +190,7 @@ final class DatabaseManagerTests: XCTestCase {
     func testMatchCandidateHeadingDeltaInitialiser() {
         let photo = makePhoto(heading: 90)
         let candidate = MatchCandidate(photo: photo, distanceMeters: 25, headingDelta: 15.0)
-        XCTAssertEqual(candidate.headingDelta, 15.0, accuracy: 0.001)
+        XCTAssertEqual(candidate.headingDelta ?? 0, 15.0, accuracy: 0.001)
     }
 
     // MARK: - HistoricalPhoto coordinate property

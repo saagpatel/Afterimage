@@ -45,26 +45,16 @@ struct VisionRanker {
             throw VisionRankerError.invalidImage
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            let request = VNGenerateImageFeaturePrintRequest { request, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let observation = request.results?.first as? VNFeaturePrintObservation else {
-                    continuation.resume(throwing: VisionRankerError.noFeaturePrint)
-                    return
-                }
-                continuation.resume(returning: observation)
-            }
-
+        return try await Task.detached {
+            let request = VNGenerateImageFeaturePrintRequest()
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                continuation.resume(throwing: error)
+            try handler.perform([request])
+
+            guard let observation = request.results?.first as? VNFeaturePrintObservation else {
+                throw VisionRankerError.noFeaturePrint
             }
-        }
+            return observation
+        }.value
     }
 
     // MARK: - Ranking
