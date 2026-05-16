@@ -16,6 +16,7 @@
 		38763413656130229FFB98DC /* HistoricalPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319886FCF5043D2B8CCEE58D /* HistoricalPhoto.swift */; };
 		4385E468E3109A42FAAEF0FC /* MatchingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4896C76D8DD82019084CADC9 /* MatchingServiceTests.swift */; };
 		44AEB553A927823FB4B1C607 /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70523CA59F324829C6ADDE17 /* ThumbnailCache.swift */; };
+		504894B74B58E92E8750CF44 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AFF59C3406560DFBB428BA05 /* PrivacyInfo.xcprivacy */; };
 		5FAE2E0C94E697A0FC918496 /* LocationPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AC26E43B43B435847483C8 /* LocationPickerView.swift */; };
 		631EA3CBD877C48052E6DEA6 /* SpatialQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03AAD21FB09082E9FC32C46 /* SpatialQueryTests.swift */; };
 		63C11743CAC75D876D55A10A /* CameraCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415FC174085FAC524444AF72 /* CameraCoordinator.swift */; };
@@ -67,6 +68,7 @@
 		90AC26E43B43B435847483C8 /* LocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerView.swift; sourceTree = "<group>"; };
 		99D7F6BB006A2C0894AB4646 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryPickerView.swift; sourceTree = "<group>"; };
+		AFF59C3406560DFBB428BA05 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B68E950EF995F0C25C4A1884 /* ThumbnailFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailFetcher.swift; sourceTree = "<group>"; };
 		BBC00C28812C529E851B9671 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C03AAD21FB09082E9FC32C46 /* SpatialQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialQueryTests.swift; sourceTree = "<group>"; };
@@ -110,6 +112,7 @@
 			children = (
 				99D7F6BB006A2C0894AB4646 /* Assets.xcassets */,
 				62EB71FFDBB1E84BA7722823 /* photos.db */,
+				AFF59C3406560DFBB428BA05 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -301,6 +304,12 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					6CBAD59369B4F7AE1AEB6998 = {
+						DevelopmentTeam = 3TGZFKFNA4;
+					};
+					9B4AA264F249FAC4E4B7FC71 = {
+						DevelopmentTeam = 3TGZFKFNA4;
+					};
 				};
 			};
 			buildConfigurationList = 070F7958E18F3E8740D4CB60 /* Build configuration list for PBXProject "Afterimage" */;
@@ -333,6 +342,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AC1A710EF9240B8D8DA4CB20 /* Assets.xcassets in Resources */,
+				504894B74B58E92E8750CF44 /* PrivacyInfo.xcprivacy in Resources */,
 				670FF4698F76D774393BC30D /* photos.db in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -476,6 +486,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 3TGZFKFNA4;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -536,6 +547,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 3TGZFKFNA4;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
