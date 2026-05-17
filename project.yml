@@ -27,7 +27,8 @@ packages:
 targets:
   Afterimage:
     type: application
-    platform: iOS
+    platform: auto
+    supportedDestinations: [iOS]
     sources:
       - path: Afterimage
     resources:
@@ -46,7 +47,8 @@ targets:
 
   AfterimageTests:
     type: bundle.unit-test
-    platform: iOS
+    platform: auto
+    supportedDestinations: [iOS]
     sources:
       - path: AfterimageTests
     dependencies:
