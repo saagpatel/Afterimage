@@ -20,6 +20,10 @@ final class AppState {
     // Stored for nearest-city calculation on no-match
     private(set) var lastMatchLocation: CLLocation?
 
+    #if DEBUG
+    private var appliedDebugLaunchArguments = false
+    #endif
+
     // City centres for all 6 target cities
     static let cityCenters: [(name: String, lat: Double, lon: Double)] = [
         ("New York City",    40.7128,  -74.0060),
@@ -159,6 +163,45 @@ final class AppState {
     }
 }
 
+#if DEBUG
+extension AppState {
+    func applyDebugLaunchArgumentsIfNeeded() {
+        guard !appliedDebugLaunchArguments else { return }
+        appliedDebugLaunchArguments = true
+
+        guard ProcessInfo.processInfo.arguments.contains("--afterimage-demo-comparison") else {
+            return
+        }
+
+        var candidate = MatchCandidate(
+            photo: HistoricalPhoto(
+                id: "debug-demo-nyc-001",
+                source: .oldnyc,
+                title: "Debug Demo: Times Square, looking north",
+                description: "Synthetic simulator proof fixture.",
+                dateText: "c. 1935",
+                dateYear: 1935,
+                lat: 40.7580,
+                lon: -73.9855,
+                city: "New York City",
+                heading: nil,
+                headingConfidence: .low,
+                thumbnailURL: "debug://afterimage/demo-historical",
+                fullResURL: nil,
+                attribution: "Afterimage debug proof fixture",
+                rightsURI: nil
+            ),
+            distanceMeters: 24
+        )
+        candidate.thumbnail = UIImage.debugProofHistorical
+        candidate.compositeScore = 0.12
+        candidate.confidenceLabel = .strongMatch
+
+        currentScreen = .comparison(.debugProofUser, candidate)
+    }
+}
+#endif
+
 // MARK: - UIImage helpers
 
 extension UIImage {
@@ -170,4 +213,42 @@ extension UIImage {
             ctx.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
         }
     }()
+
+    #if DEBUG
+    static let debugProofUser = debugProofImage(
+        topColor: UIColor(red: 0.11, green: 0.16, blue: 0.22, alpha: 1),
+        bottomColor: UIColor(red: 0.70, green: 0.82, blue: 0.95, alpha: 1),
+        lineColor: .white
+    )
+
+    static let debugProofHistorical = debugProofImage(
+        topColor: UIColor(red: 0.40, green: 0.32, blue: 0.22, alpha: 1),
+        bottomColor: UIColor(red: 0.78, green: 0.68, blue: 0.50, alpha: 1),
+        lineColor: UIColor(red: 0.20, green: 0.16, blue: 0.11, alpha: 1)
+    )
+
+    private static func debugProofImage(
+        topColor: UIColor,
+        bottomColor: UIColor,
+        lineColor: UIColor
+    ) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 900, height: 675))
+        return renderer.image { context in
+            let cgContext = context.cgContext
+            topColor.setFill()
+            cgContext.fill(CGRect(x: 0, y: 0, width: 900, height: 340))
+            bottomColor.setFill()
+            cgContext.fill(CGRect(x: 0, y: 340, width: 900, height: 335))
+
+            lineColor.setStroke()
+            cgContext.setLineWidth(18)
+            for index in 0..<7 {
+                let x = CGFloat(90 + index * 120)
+                cgContext.move(to: CGPoint(x: x, y: 175))
+                cgContext.addLine(to: CGPoint(x: x + 60, y: 500))
+                cgContext.strokePath()
+            }
+        }
+    }
+    #endif
 }

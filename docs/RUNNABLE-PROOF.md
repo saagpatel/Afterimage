@@ -18,12 +18,17 @@ Verified on 2026-05-17:
 - XcodeBuildMCP build/run succeeded on the configured iPhone simulator, launched
   bundle `com.afterimage.app`, and exposed the main UI controls for gallery,
   capture, and map.
+- A debug-only simulator proof path now launches directly into a synthetic
+  comparison result with `--afterimage-demo-comparison`; XcodeBuildMCP captured
+  the comparison screen, confirmed the `comparison-slider` accessibility target,
+  and a simulator swipe visibly moved the reveal divider.
 
 Still requiring manual or device proof:
 
 - Physical camera capture, live GPS/heading behavior, and share-sheet export.
-- A seeded simulator photo/location walkthrough that reaches a non-empty match
-  result and slider reveal.
+- A real seeded photo/location walkthrough through Photos or camera roll. The
+  debug proof path covers the non-empty comparison and slider reveal surface,
+  but it does not claim camera, Photos, or EXIF behavior.
 
 ---
 
@@ -153,6 +158,28 @@ Rebuild (step 2) so Xcode picks up the new bundle resource.
 ---
 
 ## 6. Launch the app in simulator and walk the demo
+
+### Deterministic simulator proof
+
+For a repeatable simulator proof of the comparison screen and slider reveal,
+launch the Debug build with:
+
+```bash
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-comparison
+```
+
+**Expected:** the app opens directly to a comparison screen titled
+`Debug Demo: Times Square, looking north`, with date `c. 1935`, attribution, and
+the `comparison-slider` accessibility target. Drag the slider horizontally; the
+divider should move and reveal more of the present-day or historical image.
+
+**What this proves:** the comparison surface renders and the slider interaction
+works in simulator.
+
+**What this does not prove:** physical camera capture, Photos picker, GPS/EXIF
+extraction, live heading behavior, or share-sheet export.
+
+### End-to-end city/photo path
 
 ```bash
 open -a Simulator

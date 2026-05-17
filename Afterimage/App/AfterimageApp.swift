@@ -20,63 +20,70 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        switch appState.currentScreen {
-        case .camera:
-            CameraView(
-                onCapture: { photo in
-                    appState.onPhotoCaptured(photo)
-                },
-                onGalleryPicked: { image, location in
-                    if let location {
-                        appState.onGalleryPhotoWithLocation(image, location: location)
-                    } else {
-                        appState.onGalleryPhotoNeedsLocation(image)
+        Group {
+            switch appState.currentScreen {
+            case .camera:
+                CameraView(
+                    onCapture: { photo in
+                        appState.onPhotoCaptured(photo)
+                    },
+                    onGalleryPicked: { image, location in
+                        if let location {
+                            appState.onGalleryPhotoWithLocation(image, location: location)
+                        } else {
+                            appState.onGalleryPhotoNeedsLocation(image)
+                        }
+                    },
+                    onBrowseCities: {
+                        appState.currentScreen = .citySelector
                     }
-                },
-                onBrowseCities: {
-                    appState.currentScreen = .citySelector
+                )
+                .task {
+                    do {
+                        let count = try await DatabaseManager.shared.photoCount
+                        print("DB opened: \(count) historical photos loaded")
+                    } catch {
+                        print("DB error: \(error)")
+                    }
                 }
-            )
-            .task {
-                do {
-                    let count = try await DatabaseManager.shared.photoCount
-                    print("DB opened: \(count) historical photos loaded")
-                } catch {
-                    print("DB error: \(error)")
-                }
+
+            case .citySelector:
+                CitySelectorView(
+                    onCitySelected: { city in
+                        appState.onCitySelected(city)
+                    },
+                    onDismissed: {
+                        appState.currentScreen = .camera
+                    }
+                )
+
+            case .galleryLocationPicker(let image):
+                LocationPickerView(
+                    photo: image,
+                    onConfirmed: { location in
+                        appState.onGalleryLocationConfirmed(image, location: location)
+                    },
+                    onCancelled: {
+                        appState.currentScreen = .camera
+                    }
+                )
+
+            case .matching(let photo):
+                MatchingProgressView(photo: photo)
+                    .environment(appState)
+
+            case .comparison(let userPhoto, let match):
+                ComparisonView(
+                    userPhoto: userPhoto,
+                    match: match,
+                    onDismiss: { appState.currentScreen = .camera }
+                )
             }
-
-        case .citySelector:
-            CitySelectorView(
-                onCitySelected: { city in
-                    appState.onCitySelected(city)
-                },
-                onDismissed: {
-                    appState.currentScreen = .camera
-                }
-            )
-
-        case .galleryLocationPicker(let image):
-            LocationPickerView(
-                photo: image,
-                onConfirmed: { location in
-                    appState.onGalleryLocationConfirmed(image, location: location)
-                },
-                onCancelled: {
-                    appState.currentScreen = .camera
-                }
-            )
-
-        case .matching(let photo):
-            MatchingProgressView(photo: photo)
-                .environment(appState)
-
-        case .comparison(let userPhoto, let match):
-            ComparisonView(
-                userPhoto: userPhoto,
-                match: match,
-                onDismiss: { appState.currentScreen = .camera }
-            )
+        }
+        .onAppear {
+            #if DEBUG
+            appState.applyDebugLaunchArgumentsIfNeeded()
+            #endif
         }
     }
 }

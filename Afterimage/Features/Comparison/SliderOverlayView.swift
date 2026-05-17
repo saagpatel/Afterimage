@@ -56,6 +56,9 @@ struct SliderOverlayView: View {
             .onAppear {
                 dividerX = geo.size.width / 2
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Comparison slider")
+            .accessibilityIdentifier("comparison-slider")
         }
     }
 }
