@@ -7,6 +7,24 @@ a quick "if it fails" pointer.
 > **Audience:** anyone resuming after a long pause, demoing the app to someone
 > else, or capturing a baseline before changes.
 
+## Latest verification
+
+Verified on 2026-05-17:
+
+- `xcodegen generate` recreated `Afterimage.xcodeproj` without leaving tracked
+  file changes.
+- XcodeBuildMCP simulator tests passed on the `Afterimage` scheme: 48 passed,
+  0 failed, 5 skipped.
+- XcodeBuildMCP build/run succeeded on the configured iPhone simulator, launched
+  bundle `com.afterimage.app`, and exposed the main UI controls for gallery,
+  capture, and map.
+
+Still requiring manual or device proof:
+
+- Physical camera capture, live GPS/heading behavior, and share-sheet export.
+- A seeded simulator photo/location walkthrough that reaches a non-empty match
+  result and slider reveal.
+
 ---
 
 ## 0. Prerequisites
