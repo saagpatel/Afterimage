@@ -10,11 +10,9 @@ Afterimage matches your photo to a geolocated historical photograph from the sam
 
 - **Live camera matching** — take a photo and get a historical match in under 5 seconds
 - **Four-stage pipeline** — spatial bounding-box query → heading filter (±45°) → thumbnail fetch → Vision feature-print re-ranking
-- **Three comparison modes** — draggable slider (hero), side-by-side, and animated crossfade
+- **Draggable slider** — reveals the historical image beneath the present-day photo
 - **Composite scoring** — 70% GPS/heading + 30% Vision similarity; labeled Strong Match, Good Match, or Nearby
-- **Multi-match browsing** — up to 5 candidates in a horizontal thumbnail strip
-- **Camera roll matching** — any photo with GPS EXIF metadata works
-- **Share sheet** — exports a 1200×800 composite JPEG of then-and-now
+- **Camera roll matching** — any photo with GPS EXIF metadata works; manual location picker for GPS-less images
 
 ## Quick Start
 

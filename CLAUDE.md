@@ -6,8 +6,8 @@ Afterimage is a free iOS app (iPhone-only) that matches a photo you take — or 
 ## Tech Stack
 - Language: Swift 5.10+
 - UI: SwiftUI (iOS 17+ minimum — no UIKit views except AVFoundation camera wrapper)
-- Database: SQLite via GRDB.swift 6.x — typed Swift wrappers, fast spatial queries
-- Image loading: Kingfisher 7.x — async fetch + disk cache for thumbnails
+- Database: SQLite via GRDB.swift 7.x — typed Swift wrappers, fast spatial queries
+- Image loading: Kingfisher 8.x — async fetch + disk cache for thumbnails
 - Image ML: Vision framework (`VNGenerateImageFeaturePrintRequest`) — on-device feature print similarity
 - Location: CoreLocation (CLLocationManager + CLHeading)
 - Camera: AVFoundation (photo capture pipeline)
@@ -64,8 +64,8 @@ See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
 - Language: Swift 5.10+
 - UI: SwiftUI (iOS 17+ minimum — no UIKit views except AVFoundation camera wrapper)
-- Database: SQLite via GRDB.swift 6.x — typed Swift wrappers, fast spatial queries
-- Image loading: Kingfisher 7.x — async fetch + disk cache for thumbnails
+- Database: SQLite via GRDB.swift 7.x — typed Swift wrappers, fast spatial queries
+- Image loading: Kingfisher 8.x — async fetch + disk cache for thumbnails
 - Image ML: Vision framework (`VNGenerateImageFeaturePrintRequest`) — on-device feature print similarity
 - Location: CoreLocation (CLLocationManager + CLHeading)
 - Camera: AVFoundation (photo capture pipeline)
