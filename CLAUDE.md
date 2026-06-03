@@ -15,7 +15,7 @@ Free iOS app (iPhone-only): match a photo to a geolocated historical photograph 
 ## Build / Test / Run
 See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
-Current phase: **Phase 1: Core App — Camera → Match → Slider**
+Current phase: **Phase 3: Confidence UI + Polish** (Phases 0–2 complete)
 
 ## Conventions
 - Use `guard let` or `try?` with explicit fallback — force-unwraps (`!`) only inside `fatalError`/`precondition`
@@ -53,7 +53,7 @@ Afterimage is a free iOS app (iPhone-only) that matches a photo you take — or 
 
 ## Current State
 
-**Phase 1: Core App — Camera → Match → Slider**
+**Phase 3: Confidence UI + Polish** (Phases 0–2 complete)
 See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
 ## Stack
