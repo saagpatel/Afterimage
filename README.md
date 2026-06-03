@@ -13,6 +13,7 @@ Afterimage matches your photo to a geolocated historical photograph from the sam
 - **Draggable slider** — reveals the historical image beneath the present-day photo
 - **Composite scoring** — 70% GPS/heading + 30% Vision similarity; labeled Strong Match, Good Match, or Nearby
 - **Camera roll matching** — any photo with GPS EXIF metadata works; manual location picker for GPS-less images
+- **City browse mode** — explore historical photos for any of 6 covered US cities (NYC, SF, Chicago, DC, New Orleans, Boston) without taking a photo
 
 ## Quick Start
 
