@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+          if [ -z "$SIMULATOR_ID" ]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          xcodebuild test \
+            -scheme "Afterimage" \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
+            CODE_SIGNING_ALLOWED=NO
