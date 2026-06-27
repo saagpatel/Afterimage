@@ -19,7 +19,7 @@
 ## Keywords
 
 ```
-historical photos,then and now,old photos,photo overlay,city history,NYC history,time lapse,street view,archive,heritage
+historical photos,then and now,old photos,photo overlay,city history,NYC history,street view,archive
 ```
 
 *(100 character limit)*
