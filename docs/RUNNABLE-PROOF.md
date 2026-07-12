@@ -1,278 +1,129 @@
-# Afterimage — Runnable Proof Path
+# Afterimage runnable proof
 
-A one-pass walkthrough from a clean checkout to a working in-simulator demo of
-the historical photo overlay. Each step has a command, an expected result, and
-a quick "if it fails" pointer.
+This runbook separates deterministic simulator evidence from physical-device and release evidence. A green simulator run does not prove camera hardware, GPS, compass, signing, or App Store acceptance.
 
-> **Audience:** anyone resuming after a long pause, demoing the app to someone
-> else, or capturing a baseline before changes.
+## 1. Toolchain and project generation
 
-## Latest verification
-
-Verified on 2026-05-17:
-
-- `xcodegen generate` recreated `Afterimage.xcodeproj` without leaving tracked
-  file changes.
-- XcodeBuildMCP simulator tests passed on the `Afterimage` scheme: 48 passed,
-  0 failed, 5 skipped.
-- XcodeBuildMCP build/run succeeded on the configured iPhone simulator, launched
-  bundle `com.afterimage.app`, and exposed the main UI controls for gallery,
-  capture, and map.
-- A debug-only simulator proof path now launches directly into a synthetic
-  comparison result with `--afterimage-demo-comparison`; XcodeBuildMCP captured
-  the comparison screen, confirmed the `comparison-slider` accessibility target,
-  and a simulator swipe visibly moved the reveal divider.
-
-Still requiring manual or device proof:
-
-- Physical camera capture, live GPS/heading behavior, and share-sheet export.
-- A real seeded photo/location walkthrough through Photos or camera roll. The
-  debug proof path covers the non-empty comparison and slider reveal surface,
-  but it does not claim camera, Photos, or EXIF behavior.
-
----
-
-## 0. Prerequisites
-
-- macOS (iOS toolchain required)
-- Xcode 26.3+ (matches `project.yml`)
-- Python 3.11+ (for `DataPipeline/`)
-- XcodeGen (`brew install xcodegen`) — `project.yml` is the source of truth
-- A real Apple developer account if you want to run on a device. Simulator
-  works without one.
-
-```bash
-xcodebuild -version
-xcodegen --version
-python3 --version
-```
-
----
-
-## 1. Regenerate the Xcode project from `project.yml`
+Requirements: Xcode 26.3+, XcodeGen 2.45+, Python 3.11+.
 
 ```bash
 cd /Users/d/Projects/Afterimage
+xcodebuild -version
+xcodegen --version
+python3 --version
 xcodegen generate
+git diff --exit-code -- Afterimage.xcodeproj/project.pbxproj
 ```
 
-**Expected:** `Afterimage.xcodeproj` is rebuilt against `project.yml`. No
-warnings.
+The final command should be clean when the committed project matches `project.yml`. If a new Swift file was intentionally added, inspect and commit the generated project change.
 
-**If it fails:** `xcodegen --quiet generate` to see clean errors; usually a
-missing folder or new file not declared in `project.yml`.
-
----
-
-## 2. Build for simulator
+## 2. Deterministic repository checks
 
 ```bash
-xcodebuild \
+git diff --check
+python3 -m unittest discover -s DataPipeline -p 'test_*.py' -v
+python3 -m compileall -q DataPipeline
+test "$(sqlite3 Afterimage/Resources/photos.db 'PRAGMA integrity_check;')" = ok
+```
+
+These prove pipeline safety-unit behavior, Python syntax, patch hygiene, and SQLite structural integrity. They do not prove fresh remote ingestion or data density.
+
+## 3. Release-configuration simulator build
+
+```bash
+xcodebuild build \
   -project Afterimage.xcodeproj \
   -scheme Afterimage \
-  -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
-  build
+  -configuration Release \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath /tmp/afterimage-release-derived \
+  CODE_SIGNING_ALLOWED=NO
 ```
 
-**Expected:** `BUILD SUCCEEDED`. Warnings about deprecated APIs are OK if they
-are not new (compare against the last green commit `c29f1ef`).
+Expected: `BUILD SUCCEEDED`. This is unsigned simulator evidence, not an archive or device build.
 
-**If it fails:**
-- Verify `DEVELOPMENT_TEAM` is set in `project.yml` (commit `95f2915`).
-- `xcodebuild -showsdks` to confirm an iOS 17+ SDK is available.
-- Clean the build with `xcodebuild clean` then retry.
-
----
-
-## 3. Run the unit-test suite
+## 4. Simulator tests
 
 ```bash
-xcodebuild \
+SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"
+test -n "$SIMULATOR_ID"
+xcodebuild test \
   -project Afterimage.xcodeproj \
   -scheme Afterimage \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
-  test
+  -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
+  -derivedDataPath /tmp/afterimage-test-derived \
+  CODE_SIGNING_ALLOWED=NO
 ```
 
-**Expected:** `TEST SUCCEEDED`. Coverage includes:
-- `DatabaseManagerTests` — SQLite open + schema
-- `HeadingFilterTests` — heading window filter (45° default, skip when
-  `headingAccuracy > 45°`)
-- `MatchingServiceTests` — composite score (70% geo + 30% vision)
-- `SpatialQueryTests` — bounding-box + Haversine ≤100m
+Expected: `TEST SUCCEEDED`. Record the executed, failed, and skipped totals. Vision feature-print tests may skip when that simulator runtime does not expose its Vision execution engine; CI or device evidence must cover the omitted path.
 
-**If it fails:** look at the test name; the test file is at
-`AfterimageTests/<TestName>.swift`. Most failures are fixture-data or
-GRDB-version-related.
+## 5. Deterministic comparison UI
 
----
-
-## 4. Verify the data pipeline (optional but recommended)
-
-The data pipeline builds the `photos.db` SQLite index that gets bundled into
-the app. It is **dev-time only** — not run on device.
-
-```bash
-cd /Users/d/Projects/Afterimage/DataPipeline
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# Ingest one source as a smoke test (Wikimedia is the most stable)
-python3 ingest_wikimedia.py --city nyc
-
-# Build the index from all ingested rows
-python3 build_index.py
-
-# Coverage audit (gate that Phase 0 widens past 2 cities)
-python3 audit_coverage.py
-```
-
-**Expected:**
-- `photos.db` produced under `DataPipeline/output/`
-- Coverage audit reports ≥25% of 100m grid cells covered for the cities you
-  ingested
-- Commit `bfc2390` widened the pipeline to NYC, SF, Chicago — re-running with
-  `--city all` should reproduce the 3-city dataset
-
-**If it fails:**
-- Wikimedia/LoC APIs throttle — wait, retry. The ingest scripts log rate-limit
-  hits.
-- Memory ballooning during index build → reduce batch size in
-  `build_index.py`.
-
----
-
-## 5. Replace the bundled `photos.db` (if you regenerated one in step 4)
-
-```bash
-cp DataPipeline/output/photos.db Afterimage/Resources/photos.db
-```
-
-Rebuild (step 2) so Xcode picks up the new bundle resource.
-
-**Skip this step if you're demoing the as-shipped DB.** The bundle's existing
-`photos.db` is the one tied to the most recent commit.
-
----
-
-## 6. Launch the app in simulator and walk the demo
-
-### Deterministic simulator proof
-
-For a repeatable simulator proof of the comparison screen and slider reveal,
-launch the Debug build with:
+The Debug build supports a synthetic comparison launch argument:
 
 ```bash
 xcrun simctl launch booted com.afterimage.app --afterimage-demo-comparison
 ```
 
-**Expected:** the app opens directly to a comparison screen titled
-`Debug Demo: Times Square, looking north`, with date `c. 1935`, attribution, and
-the `comparison-slider` accessibility target. Drag the slider horizontally; the
-divider should move and reveal more of the present-day or historical image.
+Verify:
 
-**What this proves:** the comparison surface renders and the slider interaction
-works in simulator.
+- Slider, Side by Side, and Fade modes render.
+- The slider responds to touch and VoiceOver adjustable actions.
+- Multiple-match controls are reachable when multiple fixtures are supplied.
+- Share produces a 1200×800 composite and opens the system share sheet.
 
-**What this does not prove:** physical camera capture, Photos picker, GPS/EXIF
-extraction, live heading behavior, or share-sheet export.
+This fixture does not prove camera, Photos metadata, remote image availability, or matching quality.
 
-### End-to-end city/photo path
+## 6. Bundled-data audit
 
 ```bash
-open -a Simulator
-# In the simulator: Features > Location > Custom Location...
-#   NYC: 40.7128, -74.0060
-#   SF:  37.7749, -122.4194
-#   Chicago: 41.8781, -87.6298
+python3 DataPipeline/audit_coverage.py Afterimage/Resources/photos.db
 ```
 
-Then in Xcode: hit Run (Cmd-R) on the `Afterimage` scheme with the simulator
-selected.
+Current known state at the hardening checkpoint: 26,044 records, two sources, three populated cities, and 24.0% Manhattan grid coverage against the existing 25% gate. A nonzero exit is a real no-go signal; do not lower the threshold just to produce a passing receipt.
 
-### Demo flow
-
-1. **Permission prompts** — Location, Camera. Accept both. Without Location,
-   no spatial query; without Camera, only camera-roll mode works.
-2. **Capture or pick a photo**. For a quick simulator demo, use a known
-   camera-roll photo set to the NYC location. (Simulator → Features > Photos
-   > Add to Library, then set location via Features > Location.)
-3. **Wait for match**. The matching pipeline runs:
-   - Spatial query (≤100m, ~20 candidates)
-   - Heading filter (±45° if `headingAccuracy` is good)
-   - Thumbnail fetch (Kingfisher, concurrent)
-   - Vision feature-print ranking (composite score: 70% geo + 30% vision)
-4. **Slider reveal**. Drag the vertical slider on the comparison view. The
-   historical image fades in beneath the present-day photo.
-5. **Share composite**. Tap Share → `UIActivityViewController` opens with the
-   composite image rendered.
-
-### What "works" looks like
-
-- Match returns at least 1 candidate for the NYC test location
-- Slider drag is smooth (60 FPS)
-- Composite share renders both images
-- No crash, no permission loops
-
----
-
-## 7. Verify the security/privacy posture
+Remote ingestion is optional, slow, and provider-limited. Use an isolated virtual environment:
 
 ```bash
-# Privacy manifest present (commit 651a5f4)
-ls Afterimage/PrivacyInfo.xcprivacy
-
-# DEVELOPMENT_TEAM set for App Store signing (commit 95f2915)
-grep DEVELOPMENT_TEAM project.yml
-
-# No accounts / backend dependencies
-grep -r "https://api\." Afterimage --include='*.swift' | head -5
-# Expected: empty or only Wikimedia thumbnail fetches
+python3 -m venv /tmp/afterimage-pipeline-venv
+/tmp/afterimage-pipeline-venv/bin/pip install -r DataPipeline/requirements.txt
 ```
 
----
+The importers use bounded retry/backoff and atomic staging replacement. A provider failure must exit nonzero and preserve the previous staging snapshot. `build_index.py` validates multiple sources, NYC/SF/Chicago presence, and HTTPS thumbnails before atomically replacing its output. Never copy `DataPipeline/output/photos.db` into the app until its integrity and coverage audits pass.
 
-## 8. App Store metadata sanity (commit `c29f1ef`)
+## 7. Physical-device acceptance
+
+Run on an iPhone using the intended signing team. Verify at minimum:
+
+1. Denying and later granting Camera permission produces recoverable UI.
+2. Capture starts once, takes a photo, and surfaces capture/configuration errors.
+3. Location denial and a location timeout return to a usable screen.
+4. A real location and compass heading produce bounded matching behavior.
+5. Photos selection works with and without embedded location metadata.
+6. Map fallback supplies a location for a GPS-less photo.
+7. Real historical thumbnails load over HTTPS and attribution remains visible.
+8. Slider, Side by Side, Fade, match selection, and share work with genuine images.
+9. City galleries for NYC, San Francisco, and Chicago load and show details.
+10. Airplane/offline mode produces honest image-unavailable states instead of implying full offline support.
+
+Capture the device model, iOS version, commit SHA, and pass/fail notes. Camera/GPS/heading readiness remains unproven without this receipt.
+
+## 8. Release and privacy preflight
+
+Before any upload:
 
 ```bash
-cat APPSTORE-METADATA.md | head -20
+plutil -lint Afterimage/Info.plist
+plutil -lint Afterimage/Resources/PrivacyInfo.xcprivacy
 ```
 
-Verify subtitle, description, keywords, and privacy questions match the
-intended pitch. Screenshots are committed separately when ready.
+Then verify:
 
----
+- the deep security scan completed;
+- privacy wording acknowledges third-party archive image requests;
+- App Privacy answers match actual behavior;
+- public privacy-policy and support URLs resolve;
+- authentic current-product screenshots exist;
+- a signed Release archive validates using the intended Apple account.
 
-## Build-proof source of truth
-
-This checklist mirrors the build proof captured at commits:
-
-- `bfc2390` — pipeline expanded to NYC, SF, Chicago
-- `78d9f1e` — vision: double continuation resume fix
-- `651a5f4` — privacy manifest
-- `95f2915` — DEVELOPMENT_TEAM for App Store signing
-- `c29f1ef` — App Store Connect metadata
-
-If a step regresses, bisect against these commits.
-
----
-
-## What "Phase 1" success means (per CLAUDE.md)
-
-Phase 1 is "Core App — Camera → Match → Slider". Success criteria for the
-runnable proof:
-
-| Capability | Verification step |
-|---|---|
-| Camera capture works | Step 6, action 2 |
-| Camera-roll picker works | Step 6, action 2 alternative |
-| MatchingService returns ≥1 candidate at known cities | Step 6, action 3 |
-| Slider overlay reveals historical image | Step 6, action 4 |
-| Share composite renders | Step 6, action 5 |
-| Privacy manifest present | Step 7 |
-| Tests pass | Step 3 |
-
-Phase 1 widening (more cities, more sources, ML re-ranking refinements) is
-out-of-scope here; this doc only proves the current state runs.
+Uploading, creating public listings, accepting agreements, changing pricing/territories, and submitting for review are operator-only actions.

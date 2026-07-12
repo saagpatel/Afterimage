@@ -1,100 +1,49 @@
-# Afterimage
+# Afterimage repository guide
 
-Free iOS app (iPhone-only): match a photo to a geolocated historical photograph from the same location. Core interaction is a draggable vertical slider revealing the historical image beneath the present-day photo. All matching happens on-device against a bundled SQLite index; no backend, no accounts.
+Afterimage is an iPhone-only SwiftUI app that ranks geolocated historical photographs against a captured or selected photo. User-photo processing and matching are local. Historical image files are fetched from archive hosts named in the bundled metadata; the product is not fully offline.
 
-## Stack
-- Language: Swift 5.10+
-- UI: SwiftUI (iOS 17+ minimum — no UIKit views except AVFoundation camera wrapper)
-- Database: SQLite via GRDB.swift 7.x — typed Swift wrappers, fast spatial queries
-- Image loading: Kingfisher 8.x — async fetch + disk cache for thumbnails
-- Image ML: Vision framework (`VNGenerateImageFeaturePrintRequest`) — on-device feature print similarity
-- Location: CoreLocation (CLLocationManager + CLHeading)
-- Camera: AVFoundation (photo capture pipeline)
-- Data pipeline: Python 3.12 + aiohttp + sqlite3 (dev-time only, not shipped)
+## Source of truth
 
-## Build / Test / Run
-See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
+- `project.yml` defines the Xcode project; run `xcodegen generate` after adding or removing sources.
+- `Afterimage/Resources/photos.db` is the shipped, read-only metadata index.
+- `DataPipeline/audit_coverage.py` is the density gate; do not lower it merely to obtain a green result.
+- `README.md`, `docs/RUNNABLE-PROOF.md`, and `APPSTORE-METADATA.md` must describe the current binary and bundled data, not planned features.
 
-Current phase: **Phase 3: Confidence UI + Polish** (Phases 0–2 complete)
+## Current shipped-data facts
 
-## Conventions
-- Use `guard let` or `try?` with explicit fallback — force-unwraps (`!`) only inside `fatalError`/`precondition`
-- File naming: PascalCase for Swift types and files, camelCase for variables
-- Architecture: feature-based folder structure (`Features/Camera/`, `Features/Matching/`, etc.)
-- Async: Swift async/await only — no Combine, no callbacks
-- Open `photos.db` as read-only `DatabasePool` (GRDB); write user data elsewhere
-- Preprocess images to grayscale before `VNGenerateImageFeaturePrintRequest` (Vision requirement)
-- No third-party analytics or crash reporting SDKs in v1
+- 26,044 records; approximately 13 MB.
+- NYC: 25,657; Chicago: 245; San Francisco: 142.
+- Sources: OldNYC and Wikimedia Commons.
+- Historical thumbnails are remote HTTPS resources.
+- The Manhattan 100 m grid audit is currently 24.0% against the existing 25% gate.
 
-## Gotchas
-- `photos.db` is a read-only bundled asset (~80–200MB); opening it writable corrupts the bundle
-- Keep all user photos, location data, and usage telemetry strictly on-device — no off-device transmission
-- Request camera/location permissions only when the user first taps camera/gallery, not on app launch
-- Phase 0 scope gate: data pipeline + SQLite index only; no UI; expand beyond 2 cities only after density audit passes (≥25% of 100m grid cells covered)
+## Stack and conventions
 
-## Key Decisions
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Index approach | Bundled SQLite (`photos.db`, ~80–200MB) | Live API per photo = 2–4s added latency + offline broken |
-| NYC photos source | OldNYC dataset (GitHub, ~25K geolocated NYPL photos) | NYPL Space/Time archived Oct 2024; OldNYC has same photos with GPS coords |
-| Vision role | Re-ranking only (not primary filter) | Vision needs thumbnails downloaded first; can't cold-filter |
-| Heading filter | ±45° window | Magnetometer error in urban canyons can reach ±40°; ±30° drops valid matches |
-| iOS minimum | iOS 17 | `VNFeaturePrintObservation` 768-dim normalized vectors require iOS 17 |
-| Composite score | GPS/heading 70% + Vision 30% | Historical photos are stylistically dissimilar; Vision alone unreliable |
-| V1 cities | NYC, SF, Chicago, DC, New Orleans, Boston | Highest OldNYC + Wikimedia photo density with GPS metadata |
-| Monetization | Free, no paywall | Viral sharing is the growth mechanic — paywalls kill it |
+- iOS 17+, SwiftUI, Swift structured concurrency.
+- GRDB 7.x for read-only SQLite access.
+- Kingfisher 8.x for remote historical images and disk cache.
+- Vision feature prints for local visual re-ranking.
+- CoreLocation for position and heading; AVFoundation for capture.
+- Python/aiohttp/SQLite for the development-time data pipeline.
+- Prefer explicit user-visible fallback states over `fatalError`, silent return, swallowed errors, or unbounded waits.
+- Preserve actor/concurrency boundaries; do not pass non-Sendable AVFoundation, CoreLocation, or Vision objects between isolation domains.
+- No analytics, advertising, account, or crash-reporting SDKs without an explicit product/privacy decision.
+- Never transmit the user photo or precise user location to an Afterimage service.
 
-<!-- portfolio-context:start -->
-# Portfolio Context
+## Build and verification
 
-## What This Project Is
+```bash
+xcodegen generate
+python3 -m unittest discover -s DataPipeline -p 'test_*.py' -v
+python3 -m compileall -q DataPipeline
+test "$(sqlite3 Afterimage/Resources/photos.db 'PRAGMA integrity_check;')" = ok
+xcodebuild build -project Afterimage.xcodeproj -scheme Afterimage \
+  -configuration Release -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO
+```
 
-Afterimage is a free iOS app (iPhone-only) that matches a photo you take — or select from your camera roll — to a geolocated historical photograph from the same location. The core interaction is a draggable vertical slider revealing the historical image beneath the present-day photo. All matching happens on-device against a bundled SQLite index; no backend, no accounts.
+Run tests on an installed iPhone simulator as documented in `README.md`. Vision feature-print tests may skip on simulator runtimes that do not expose the Vision engine; CI or physical-device evidence is needed for those paths.
 
-## Current State
+## Release boundary
 
-**Phase 3: Confidence UI + Polish** (Phases 0–2 complete)
-See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
-
-## Stack
-
-- Language: Swift 5.10+
-- UI: SwiftUI (iOS 17+ minimum — no UIKit views except AVFoundation camera wrapper)
-- Database: SQLite via GRDB.swift 7.x — typed Swift wrappers, fast spatial queries
-- Image loading: Kingfisher 8.x — async fetch + disk cache for thumbnails
-- Image ML: Vision framework (`VNGenerateImageFeaturePrintRequest`) — on-device feature print similarity
-- Location: CoreLocation (CLLocationManager + CLHeading)
-- Camera: AVFoundation (photo capture pipeline)
-- Data pipeline: Python 3.12 + aiohttp + sqlite3 (dev-time only, not shipped)
-
-## How To Run
-
-- Swift: no force-unwraps (`!`) outside of fatalError/precondition; use `guard let` or `try?` with explicit fallback
-- File naming: PascalCase for Swift types and files, camelCase for variables
-- Architecture: feature-based folder structure (Features/Camera/, Features/Matching/, etc.)
-- No third-party analytics or crash reporting SDKs in v1
-- All async work via Swift async/await — no Combine, no callbacks
-- GRDB: always open `photos.db` as read-only `DatabasePool`
-- Vision: always preprocess images to grayscale before `VNGenerateImageFeaturePrintRequest`
-
-## Known Risks
-
-- Do not add features not in the current phase of IMPLEMENTATION-ROADMAP.md
-- Do not open `photos.db` as writable — it is a read-only bundled asset; never write user data to it
-- Do not transmit user photos, location data, or any usage telemetry off-device
-- Do not request camera or location permissions on app launch — only when the user first taps camera/gallery
-- Do not run `VNGenerateImageFeaturePrintRequest` on color images — always convert to grayscale first
-- Do not use Combine or callback-based async — async/await only
-- Do not add UI in Phase 0 — Phase 0 is data pipeline and SQLite index only
-- Do not widen Phase 0 to more than 2 cities until density audit passes (≥25% of 100m grid cells covered)
-
-## Next Recommended Move
-
-Use this context plus the README and supporting docs to resume the next active task, then promote the repo beyond minimum-viable by capturing a dedicated handoff, roadmap, or discovery artifact.
-
-<!-- portfolio-context:end -->
-
-<!-- secondbrain-breadcrumb -->
-## SecondBrain knowledge vault
-
-Prior lessons, decisions, and context for this project live in SecondBrain at `wiki/maps/projects/afterimage.md`. The whole vault is searchable via the `engraph` MCP — query it for this project + its stack before non-trivial work.
+Do not claim App Store readiness while the deep security scan, 25% density gate, physical-device sensor proof, signing archive, privacy/support URLs, screenshots, or App Store Connect validation remain open. Do not upload or submit a build, accept agreements, or change Apple-account state without explicit operator approval.

@@ -1,143 +1,121 @@
-# Afterimage — App Store Connect Metadata
+# Afterimage — App Store metadata draft
+
+This file is a pre-submission draft grounded in the current binary and bundled database. It is not evidence that an App Store Connect record exists or that the app passed archive validation.
 
 ## Identity
 
-| Field | Value |
-|-------|-------|
-| **Name** | Afterimage |
-| **Subtitle** | History Through Your Camera |
-| **Bundle ID** | com.afterimage.app |
-| **SKU** | AFTERIMAGE-001 |
-| **Primary Category** | Photo & Video |
-| **Secondary Category** | Education |
-| **Age Rating** | 4+ |
-| **Price** | Free |
-| **Availability** | All territories |
+| Field | Draft value |
+|---|---|
+| Name | Afterimage |
+| Subtitle | Compare Today With History |
+| Bundle ID | `com.afterimage.app` |
+| SKU | `AFTERIMAGE-001` |
+| Primary category | Photo & Video |
+| Secondary category | Education |
+| Price | Free |
 
----
+Age rating, territories, and pricing must be confirmed in App Store Connect rather than inferred here.
 
 ## Keywords
 
-```
-historical photos,then and now,old photos,photo overlay,city history,NYC history,time lapse,street view,archive,heritage
+```text
+historical photos,then and now,old photos,photo overlay,city history,archive,heritage
 ```
 
-*(100 character limit)*
-
----
+Confirm the final comma-separated value against App Store Connect's current character limit.
 
 ## Description
 
-Stand where history happened — and see it.
+Stand where history happened—and compare the place in front of you with photographs from the past.
 
-Afterimage matches your camera view to a geolocated historical photograph from the same location, then lets you drag a vertical slider to reveal the past beneath the present. A 19th-century streetscape dissolves into today's skyline. A demolished building reappears in the exact spot where you're standing.
+Afterimage uses your location, optional camera heading, and on-device image analysis to rank historical photographs taken nearby. Capture a photo or choose one from your library, then explore up to five results with Slider, Side by Side, and Fade comparison modes. You can also browse the bundled historical index by city and share a generated comparison image.
 
-No accounts. No subscriptions. Everything runs on-device.
+CURRENT COVERAGE
 
-HOW IT WORKS
+• New York City
+• San Francisco
+• Chicago
+• More than 26,000 indexed historical-photo records from OldNYC and Wikimedia Commons
 
-Afterimage uses your location and camera heading to find historical photos taken within meters of where you're standing, facing the same direction. A composite similarity score combines GPS distance, compass bearing, and on-device image analysis to surface the best match. Drag the slider to blend past and present.
+PRIVACY AND NETWORK USE
 
-WHAT'S INCLUDED
+Afterimage has no account system, advertising SDK, analytics SDK, or Afterimage backend. Your selected photo and precise location are processed on device and are not uploaded by the app. The metadata index is bundled with the app, while historical images are downloaded over HTTPS from their source archives. A network connection is therefore required to display uncached historical images.
 
-• Thousands of geolocated historical photographs from NYC, San Francisco, Chicago, Washington DC, New Orleans, and Boston
-• On-device matching — no photos sent to any server, ever
-• Draggable vertical reveal slider for seamless past/present comparison
-• Camera mode: match your live viewfinder to a historical photo in real time
-• Gallery mode: pick a historical photo and navigate to its exact location
-• Offline-first: the entire photo index is bundled with the app
+Camera, Photos, and location access are requested only for the features that need them.
 
-YOUR PRIVACY
+## Promotional text
 
-Afterimage never transmits your photos, your location, or any usage data. Camera and location access are used exclusively on-device for matching. No accounts, no analytics, no telemetry.
-
----
-
-## Promotional Text
-
-*(Optional — appears above description, can be updated without a new app version)*
-
-```
-Point your camera at a city street and see the same block from 100 years ago.
+```text
+Photograph a place and compare it with historical images taken nearby.
 ```
 
----
+## URLs
 
-## Support URL
+- Support URL candidate: `https://github.com/saagpatel/Afterimage`
+- Privacy Policy URL: **required before submission; not yet provided**
+- Marketing URL: optional and not yet selected
 
-https://github.com/d/Afterimage
+The support repository must remain public and suitable for App Review before using it as the production support URL.
 
----
+## Screenshot plan
 
-## Privacy Policy URL
+Use the current App Store Connect screenshot requirements at submission time; do not rely on stale device-size assumptions in this repository.
 
-*(Required — can be a simple page stating no data is collected)*
+Suggested current-product screenshots:
 
----
+1. Comparison screen in Slider mode with a genuine matched pair.
+2. Side by Side or Fade comparison mode.
+3. Multiple-match selector with date and attribution.
+4. Historical city gallery for one of the three shipped cities.
+5. Camera permission or camera-ready surface only if captured on a physical device with real behavior.
 
-## Screenshots
+Do not depict a live historical viewfinder overlay, six-city coverage, offline image availability, a similarity percentage, or navigation-to-photo features; those are not current product behavior.
 
-### Required Sizes
-- **6.7" Display** — 1290 × 2796 px (iPhone 16 Pro Max / iPhone 15 Pro Max)
-- **6.1" Display** — 1179 × 2556 px (iPhone 16 / iPhone 15)
+## App Review notes draft
 
-### Screenshot Plan (4 screenshots per size)
+```text
+Afterimage can match a captured or selected photo with historical photographs taken nearby.
 
-| # | Screen | Simulator State | Headline Overlay |
-|---|--------|-----------------|------------------|
-| 1 | SliderView | Vertical slider at 50% — left half shows present-day NYC street, right half reveals an 1890s photograph of the same block | "Drag to reveal the past." |
-| 2 | CameraView | Live camera viewfinder with semi-transparent historical photo overlay at ~30% opacity, compass heading indicator visible | "Stand where history happened." |
-| 3 | MatchResultView | Best-match card: historical photo thumbnail, date (e.g. "ca. 1905"), distance badge "12m away", similarity score | "The same corner. 120 years apart." |
-| 4 | GalleryView | Grid of historical photo thumbnails with city filter active (NYC), map pin count badge visible | "Thousands of moments. Six cities." |
+Live capture flow:
+1. Grant Camera and Location When In Use permissions.
+2. Capture a photo.
+3. The app obtains a location and, when available, a heading.
+4. It searches the bundled metadata index and downloads candidate historical thumbnails from their source archives.
+5. Select among the returned matches and use Slider, Side by Side, or Fade comparison modes.
 
-### How to Take Screenshots
-1. Open Xcode → Simulator → select iPhone 16 Pro Max
-2. Build and run the Afterimage target
-3. Use pre-seeded NYC test data for the slider and gallery views
-4. **Xcode menu: Product → Simulator → Take Screenshot** (saves to Desktop)
-   OR: `xcrun simctl io booted screenshot ~/Desktop/screenshot.png`
-5. Repeat for iPhone 16 (6.1") by switching simulator
-6. Add marketing text overlays in Sketch, Figma, or Canva before uploading
+Alternative flow:
+1. Choose a photo from Photos.
+2. If the selected asset does not expose a location, choose one on the map.
+3. Continue through the same matching and comparison flow.
 
----
-
-## App Review Notes
-
-```
-Afterimage requires camera and location permissions to match live camera views to historical photos.
-
-To test the core flow:
-1. Grant camera and location permissions when prompted
-2. Tap the camera icon to enter camera mode
-3. The app will find nearby historical photos matching your direction
-4. A match result card appears — tap it to enter the slider view
-5. Drag the vertical slider to reveal the historical photo beneath the present-day view
-
-For review without a physical location match, use Gallery mode:
-1. Tap "Gallery" and browse the bundled historical photos
-2. Tap any photo to see its metadata and navigate to its location on the map
-3. Tap "Go Here" to enter camera mode aimed at that location
-
-No network connection is required. All photo matching is on-device.
-No account or login is required at any point.
+The Browse Cities button opens a read-only historical gallery for New York City, San Francisco, or Chicago. No account or login is required. Network access is required for historical images that are not already cached.
 ```
 
----
+Before submission, replace this draft with physical-device steps that have been repeated successfully on the exact submitted build.
 
-## Checklist Before Submission
+## Verified-in-repository facts
 
-- [ ] Bundle ID `com.afterimage.app` registered in Apple Developer portal
-- [ ] App icon 1024×1024 appears correctly in Xcode asset catalog (no warnings)
-- [ ] Archive succeeds: `Product → Archive` with no errors
-- [ ] Validate App passes with 0 errors (check privacy manifest, entitlements)
-- [ ] All 8 screenshots uploaded (4 per required size)
-- [ ] Description, keywords, subtitle filled in App Store Connect
-- [ ] Price set to Free in Pricing and Availability
-- [ ] Age rating questionnaire complete (4+)
-- [ ] Support URL and Privacy Policy URL provided
-- [ ] Camera usage description present in Info.plist (`NSCameraUsageDescription`)
-- [ ] Location usage description present in Info.plist (`NSLocationWhenInUseUsageDescription`)
-- [ ] PrivacyInfo.xcprivacy declares camera, location, and file access reasons
-- [ ] `photos.db` bundled asset is read-only and not writable at runtime
-- [ ] TestFlight internal test complete (camera match flow, slider interaction, gallery browsing)
-- [ ] Submit for Review
+- Bundle ID: `com.afterimage.app`.
+- Version/build currently resolve to `1.0` / `1`.
+- Camera, Photos, and Location When In Use usage descriptions exist in `Afterimage/Info.plist`.
+- `ITSAppUsesNonExemptEncryption` is `false`.
+- `Afterimage/Resources/PrivacyInfo.xcprivacy` declares no tracking or collected-data types.
+- The bundled SQLite file opens read-only and passes `PRAGMA integrity_check`.
+
+These facts do not replace App Store Connect privacy answers, export-compliance review, or archive validation.
+
+## Gates before App Store Connect upload
+
+- [ ] Deep repository security scan completed and reportable findings resolved or explicitly dispositioned.
+- [ ] Existing 25% Manhattan density gate passed or changed only through a documented product/data decision.
+- [ ] Physical-device camera, location, heading, Photos, comparison, and share flows passed.
+- [ ] Release device build and signed archive succeeded with the intended team/profile.
+- [ ] App icon and asset catalog validated without warnings.
+- [ ] Privacy manifest and App Privacy answers reviewed against actual network behavior.
+- [ ] Public privacy-policy URL and support URL live and verified.
+- [ ] Current App Store screenshot requirements checked and authentic screenshots produced.
+- [ ] App Review notes replayed against the submitted build.
+
+## Operator-only steps
+
+Creating or changing the App Store Connect listing, uploading a build, setting territories/pricing, accepting agreements, completing legal questionnaires, inviting testers, and submitting for review require explicit operator approval.
