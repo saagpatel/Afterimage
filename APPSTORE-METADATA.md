@@ -52,7 +52,7 @@ Photograph a place and compare it with historical images taken nearby.
 ## URLs
 
 - Support URL candidate: `https://github.com/saagpatel/Afterimage`
-- Privacy Policy URL: **required before submission; not yet provided**
+- Privacy Policy URL candidate after merge: `https://github.com/saagpatel/Afterimage/blob/main/PRIVACY.md`
 - Marketing URL: optional and not yet selected
 
 The support repository must remain public and suitable for App Review before using it as the production support URL.
@@ -113,7 +113,7 @@ These facts do not replace App Store Connect privacy answers, export-compliance 
 - [ ] Release device build and signed archive succeeded with the intended team/profile.
 - [x] App icon and asset catalog validated in an unsigned device archive without asset-catalog warnings.
 - [ ] Privacy manifest and App Privacy answers reviewed against actual network behavior.
-- [ ] Public privacy-policy URL and support URL live and verified.
+- [ ] Public privacy-policy URL and support URL resolve from merged `main` and are verified in a logged-out browser.
 - [ ] Current App Store screenshot requirements checked and authentic screenshots produced.
 - [ ] App Review notes replayed against the submitted build.
 

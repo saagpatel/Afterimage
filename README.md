@@ -63,6 +63,7 @@ sqlite3 Afterimage/Resources/photos.db 'PRAGMA integrity_check;'
 ```
 
 See [docs/RUNNABLE-PROOF.md](docs/RUNNABLE-PROOF.md) for simulator and physical-device proof boundaries.
+See [PRIVACY.md](PRIVACY.md) for the repository-hosted privacy-policy draft.
 
 ## Release posture
 
