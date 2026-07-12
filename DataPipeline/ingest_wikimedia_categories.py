@@ -13,6 +13,7 @@ import csv
 import logging
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 import aiohttp
@@ -104,6 +105,36 @@ CITY_CATEGORIES: dict[str, dict] = {
 }
 
 
+async def fetch_json(
+    session: aiohttp.ClientSession,
+    *,
+    params: dict,
+    context: str,
+    max_attempts: int = 5,
+) -> dict:
+    """Fetch JSON with provider-friendly pacing and bounded retry/backoff."""
+    for attempt in range(max_attempts):
+        try:
+            async with session.get(WIKIMEDIA_API_URL, params=params) as resp:
+                if resp.status == 429:
+                    retry_after = float(resp.headers.get("Retry-After", 2 ** attempt))
+                    log.warning("Rate limited while fetching %s; retrying in %.1fs", context, retry_after)
+                    await asyncio.sleep(retry_after)
+                    continue
+                resp.raise_for_status()
+                return await resp.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            if attempt == max_attempts - 1:
+                raise RuntimeError(f"Wikimedia request failed for {context}") from exc
+            delay = 2 ** attempt
+            log.warning("Error fetching %s: %s; retrying in %ss", context, exc, delay)
+            await asyncio.sleep(delay)
+        finally:
+            await asyncio.sleep(WIKIMEDIA_RATE_LIMIT_SEC)
+
+    raise RuntimeError(f"Wikimedia remained rate limited for {context}")
+
+
 def extract_address_from_text(text: str) -> str | None:
     """Extract a street address from description or title text."""
     clean = re.sub(r"<[^>]+>", " ", text)
@@ -179,19 +210,13 @@ async def fetch_category_members(
         if cmcontinue:
             params["cmcontinue"] = cmcontinue
 
-        try:
-            async with session.get(WIKIMEDIA_API_URL, params=params) as resp:
-                data = await resp.json()
-        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-            log.warning("Error fetching %s: %s", category, exc)
-            break
+        data = await fetch_json(session, params=params, context=category)
 
         batch = data.get("query", {}).get("categorymembers", [])
         members.extend(batch)
 
         if "continue" in data:
             cmcontinue = data["continue"]["cmcontinue"]
-            await asyncio.sleep(WIKIMEDIA_RATE_LIMIT_SEC)
         else:
             break
 
@@ -212,13 +237,11 @@ async def fetch_page_metadata(
         "iiextmetadatafilter": "DateTimeOriginal|Categories|ImageDescription|License|LicenseUrl|GPSLatitude|GPSLongitude",
         "format": "json",
     }
-    try:
-        async with session.get(WIKIMEDIA_API_URL, params=params) as resp:
-            data = await resp.json()
-    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        log.warning("Error fetching metadata batch: %s", exc)
-        return {}
-    await asyncio.sleep(WIKIMEDIA_RATE_LIMIT_SEC)
+    data = await fetch_json(
+        session,
+        params=params,
+        context=f"metadata batch beginning {pageids[0] if pageids else 'empty'}",
+    )
 
     return data.get("query", {}).get("pages", {})
 
@@ -387,11 +410,25 @@ async def ingest() -> Path:
             all_records.extend(records)
             city_counts[city_name] = len(records)
 
-    # Write CSV
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
+    if not all_records:
+        raise RuntimeError("Wikimedia category ingestion produced no records; refusing to replace staging data")
+
+    # Write atomically so an interrupted or failed provider run cannot replace a
+    # previously usable staging file with an empty or partial result.
+    with tempfile.NamedTemporaryFile(
+        "w",
+        newline="",
+        encoding="utf-8",
+        dir=STAGING_DIR,
+        prefix="staging_wikimedia_categories.",
+        suffix=".tmp",
+        delete=False,
+    ) as f:
         writer = csv.DictWriter(f, fieldnames=STAGING_COLUMNS)
         writer.writeheader()
         writer.writerows(all_records)
+        temporary_path = Path(f.name)
+    temporary_path.replace(output_path)
 
     log.info("=== SUMMARY ===")
     log.info("Total: %d records → %s", len(all_records), output_path)

@@ -12,8 +12,7 @@ struct VisionRanker {
     static var geoWeight: Double = 0.70
     static var visionWeight: Double = 0.30
 
-    // Shared CIContext — reused across calls to avoid repeated GPU context allocation
-    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    private static let processor = VisionProcessor()
 
     // MARK: - Grayscale Preprocessing
 
@@ -21,40 +20,19 @@ struct VisionRanker {
     static func grayscale(_ image: UIImage) -> UIImage? {
         guard let cgImage = image.cgImage else { return nil }
 
-        let ciImage = CIImage(cgImage: cgImage)
-
-        guard let filter = CIFilter(name: "CIColorControls") else { return nil }
-        filter.setValue(ciImage, forKey: kCIInputImageKey)
-        filter.setValue(0.0, forKey: kCIInputSaturationKey)
-
-        guard let output = filter.outputImage else { return nil }
-
-        guard let rendered = ciContext.createCGImage(output, from: output.extent) else {
-            return nil
-        }
-
+        guard let rendered = grayscaleCGImage(cgImage) else { return nil }
         return UIImage(cgImage: rendered, scale: image.scale, orientation: image.imageOrientation)
     }
 
     // MARK: - Feature Print
 
-    /// Generates a `VNFeaturePrintObservation` for `image`.
-    /// The caller is responsible for passing a grayscale image.
-    static func featurePrint(from image: UIImage) async throws -> VNFeaturePrintObservation {
-        guard let cgImage = image.cgImage else {
+    /// Computes feature-print distance without sending Vision observations across
+    /// concurrency domains. Vision's reference types are intentionally actor-confined.
+    static func featureDistance(between first: UIImage, and second: UIImage) async throws -> Float {
+        guard let firstImage = first.cgImage, let secondImage = second.cgImage else {
             throw VisionRankerError.invalidImage
         }
-
-        return try await Task.detached {
-            let request = VNGenerateImageFeaturePrintRequest()
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            try handler.perform([request])
-
-            guard let observation = request.results?.first as? VNFeaturePrintObservation else {
-                throw VisionRankerError.noFeaturePrint
-            }
-            return observation
-        }.value
+        return try await processor.distance(between: firstImage, and: secondImage)
     }
 
     // MARK: - Ranking
@@ -72,54 +50,16 @@ struct VisionRanker {
             throw VisionRankerError.grayscaleFailed
         }
 
-        let userPrint = try await featurePrint(from: grayUser)
-
-        // Compute vision distances in parallel
         var visionDistances: [UUID: Float] = [:]
-
-        await withTaskGroup(of: (UUID, Float).self) { group in
-            for candidate in candidates {
-                guard let thumbnail = candidate.thumbnail else { continue }
-
-                group.addTask {
-                    guard
-                        let grayThumb = grayscale(thumbnail),
-                        let thumbPrint = try? await featurePrint(from: grayThumb)
-                    else {
-                        return (candidate.id, 1.0)
-                    }
-
-                    var distance: Float = 0
-                    // computeDistance(to:) is a throwing function
-                    guard (try? thumbPrint.computeDistance(&distance, to: userPrint)) != nil else {
-                        return (candidate.id, 1.0)
-                    }
-                    return (candidate.id, distance)
-                }
-            }
-
-            for await (id, dist) in group {
-                visionDistances[id] = dist
-            }
-        }
-
-        // Normalise vision distances to [0, 1]
-        let allDistances = visionDistances.values
-        let maxDist = allDistances.max() ?? 1.0
-        let minDist = allDistances.min() ?? 0.0
-        let distRange = maxDist - minDist
-
-        // Normalise geo distances to [0, 1]
-        let maxGeo = candidates.map(\.distanceMeters).max() ?? 1.0
-        let minGeo = candidates.map(\.distanceMeters).min() ?? 0.0
-        let geoRange = maxGeo - minGeo
-
-        func normaliseGeo(_ d: Double) -> Double {
-            geoRange > 0 ? (d - minGeo) / geoRange : 0
-        }
-
-        func normaliseVision(_ d: Float) -> Double {
-            distRange > 0 ? Double((d - minDist) / distRange) : 0
+        for candidate in candidates {
+            guard
+                let thumbnail = candidate.thumbnail,
+                let grayThumb = grayscale(thumbnail)
+            else { continue }
+            visionDistances[candidate.id] = (try? await featureDistance(
+                between: grayUser,
+                and: grayThumb
+            )) ?? 1.0
         }
 
         var ranked = candidates.map { candidate -> MatchCandidate in
@@ -127,8 +67,12 @@ struct VisionRanker {
             let rawVision = visionDistances[candidate.id] ?? 1.0
             updated.visionDistance = rawVision
 
-            let geoScore = normaliseGeo(candidate.distanceMeters)
-            let visionScore = normaliseVision(rawVision)
+            // Use absolute inputs so confidence does not change merely because another
+            // candidate enters or leaves the result set. The 100 m denominator matches
+            // the primary search radius; Vision distances at or above 1 are treated as
+            // maximally dissimilar.
+            let geoScore = min(max(candidate.distanceMeters / 100, 0), 1)
+            let visionScore = min(max(Double(rawVision), 0), 1)
             let composite = geoWeight * geoScore + visionWeight * visionScore
 
             updated.compositeScore = composite
@@ -156,11 +100,6 @@ struct VisionRanker {
             return
         }
 
-        guard let userPrint = try? await featurePrint(from: grayUser) else {
-            print("[VisionRanker] Benchmark: feature print failed for user photo")
-            return
-        }
-
         for candidate in candidates {
             guard let thumbnail = candidate.thumbnail else {
                 print("[VisionRanker] Benchmark: \(candidate.photo.id) — no thumbnail")
@@ -169,18 +108,43 @@ struct VisionRanker {
 
             guard
                 let grayThumb = grayscale(thumbnail),
-                let thumbPrint = try? await featurePrint(from: grayThumb)
+                let distance = try? await featureDistance(between: grayUser, and: grayThumb)
             else {
                 print("[VisionRanker] Benchmark: \(candidate.photo.id) — feature print failed")
                 continue
             }
 
-            var distance: Float = 0
-            if (try? thumbPrint.computeDistance(&distance, to: userPrint)) != nil {
-                print("[VisionRanker] Benchmark: \(candidate.photo.id) distance=\(distance)")
-            } else {
-                print("[VisionRanker] Benchmark: \(candidate.photo.id) — computeDistance failed")
-            }
+            print("[VisionRanker] Benchmark: \(candidate.photo.id) distance=\(distance)")
         }
+    }
+
+    private static func grayscaleCGImage(_ image: CGImage) -> CGImage? {
+        let ciImage = CIImage(cgImage: image)
+        guard let filter = CIFilter(name: "CIColorControls") else { return nil }
+        filter.setValue(ciImage, forKey: kCIInputImageKey)
+        filter.setValue(0.0, forKey: kCIInputSaturationKey)
+        guard let output = filter.outputImage else { return nil }
+        return CIContext(options: [.useSoftwareRenderer: false])
+            .createCGImage(output, from: output.extent)
+    }
+}
+
+private actor VisionProcessor {
+    func distance(between first: CGImage, and second: CGImage) throws -> Float {
+        let firstPrint = try featurePrint(from: first)
+        let secondPrint = try featurePrint(from: second)
+        var distance: Float = 0
+        try firstPrint.computeDistance(&distance, to: secondPrint)
+        return distance
+    }
+
+    private func featurePrint(from image: CGImage) throws -> VNFeaturePrintObservation {
+        let request = VNGenerateImageFeaturePrintRequest()
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
+        try handler.perform([request])
+        guard let observation = request.results?.first as? VNFeaturePrintObservation else {
+            throw VisionRankerError.noFeaturePrint
+        }
+        return observation
     }
 }

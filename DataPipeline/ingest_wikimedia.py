@@ -11,6 +11,7 @@ import logging
 import math
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 import aiohttp
@@ -216,26 +217,36 @@ async def fetch_tile(
             try:
                 async with session.get(WIKIMEDIA_API_URL, params=params) as resp:
                     if resp.status == 429:
-                        wait = (2 ** attempt) * WIKIMEDIA_RATE_LIMIT_SEC
+                        wait = float(
+                            resp.headers.get(
+                                "Retry-After",
+                                (2 ** attempt) * WIKIMEDIA_RATE_LIMIT_SEC,
+                            )
+                        )
                         log.warning("Rate limited, waiting %.1fs", wait)
                         await asyncio.sleep(wait)
                         continue
                     if resp.status != 200:
-                        log.warning("HTTP %d for tile (%.4f, %.4f)", resp.status, lat, lon)
-                        return []
+                        raise RuntimeError(
+                            f"Wikimedia returned HTTP {resp.status} for tile ({lat:.4f}, {lon:.4f})"
+                        )
                     data = await resp.json()
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 log.warning("Request error for tile (%.4f, %.4f): %s", lat, lon, exc)
                 if attempt < WIKIMEDIA_MAX_RETRIES - 1:
                     await asyncio.sleep((2 ** attempt) * WIKIMEDIA_RATE_LIMIT_SEC)
                     continue
-                return []
+                raise RuntimeError(
+                    f"Wikimedia request failed for tile ({lat:.4f}, {lon:.4f})"
+                ) from exc
 
             # Rate limit
             await asyncio.sleep(WIKIMEDIA_RATE_LIMIT_SEC)
             break
         else:
-            return []
+            raise RuntimeError(
+                f"Wikimedia remained rate limited for tile ({lat:.4f}, {lon:.4f})"
+            )
 
     pages = data.get("query", {}).get("pages", {})
     records = []
@@ -313,11 +324,24 @@ async def ingest() -> Path:
                         "SF yield below 200 — consider Flickr Commons contingency (ingest_flickr.py)"
                     )
 
-    # Write CSV
-    with open(output_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=STAGING_COLUMNS)
+    if not all_records:
+        raise RuntimeError("Wikimedia ingestion returned no historical records")
+
+    # Replace staging data only after the full ingestion succeeds. A provider
+    # failure must never erase the last known-good snapshot with partial data.
+    with tempfile.NamedTemporaryFile(
+        "w",
+        newline="",
+        encoding="utf-8",
+        dir=output_path.parent,
+        prefix=f".{output_path.name}.",
+        delete=False,
+    ) as temporary_file:
+        writer = csv.DictWriter(temporary_file, fieldnames=STAGING_COLUMNS)
         writer.writeheader()
         writer.writerows(all_records)
+        temporary_path = Path(temporary_file.name)
+    temporary_path.replace(output_path)
 
     log.info("Wrote %d total rows → %s", len(all_records), output_path)
 

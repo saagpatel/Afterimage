@@ -92,4 +92,26 @@ final class HeadingFilterTests: XCTestCase {
         XCTAssertEqual(results.count, 1, "Nil-heading candidate should pass through")
         XCTAssertNil(results.first?.headingDelta, "headingDelta should remain nil")
     }
+
+    func testAsyncTimeoutReturnsFirstHeadingReading() async {
+        let stream = AsyncStream<HeadingReading> { continuation in
+            continuation.yield(HeadingReading(trueHeading: 87, accuracy: 4))
+            continuation.finish()
+        }
+
+        let result = await AsyncTimeout.firstValue(from: stream, timeout: .seconds(1))
+        XCTAssertEqual(result?.trueHeading, 87)
+        XCTAssertEqual(result?.accuracy, 4)
+    }
+
+    func testAsyncTimeoutDoesNotWaitForeverForMissingHeading() async {
+        let clock = ContinuousClock()
+        let start = clock.now
+        let stream = AsyncStream<HeadingReading> { _ in }
+
+        let result = await AsyncTimeout.firstValue(from: stream, timeout: .milliseconds(50))
+
+        XCTAssertNil(result)
+        XCTAssertLessThan(start.duration(to: clock.now), .seconds(1))
+    }
 }

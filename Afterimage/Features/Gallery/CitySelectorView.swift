@@ -16,12 +16,6 @@ struct CityInfo: Identifiable {
                  coordinate: .init(latitude: 37.7749, longitude: -122.4194), photoCount: nil),
         CityInfo(id: "chicago", name: "Chicago",
                  coordinate: .init(latitude: 41.8781, longitude: -87.6298), photoCount: nil),
-        CityInfo(id: "dc", name: "Washington, D.C.",
-                 coordinate: .init(latitude: 38.9072, longitude: -77.0369), photoCount: nil),
-        CityInfo(id: "new_orleans", name: "New Orleans",
-                 coordinate: .init(latitude: 29.9511, longitude: -90.0715), photoCount: nil),
-        CityInfo(id: "boston", name: "Boston",
-                 coordinate: .init(latitude: 42.3601, longitude: -71.0589), photoCount: nil),
     ]
 }
 
@@ -66,18 +60,18 @@ private struct CityCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(city.name)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.headline)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let count = city.photoCount {
                     Text("\(count.formatted()) photos")
-                        .font(.system(size: 13))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Historical photos")
-                        .font(.system(size: 13))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }

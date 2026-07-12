@@ -2,20 +2,36 @@ import Foundation
 import GRDB
 
 final class DatabaseManager: Sendable {
-    static let shared = DatabaseManager()
+    enum BundledDatabaseError: LocalizedError {
+        case missing
+        case unreadable(underlying: Error)
+
+        var errorDescription: String? {
+            switch self {
+            case .missing:
+                return "The historical photo database is missing from this build."
+            case .unreadable:
+                return "The historical photo database could not be opened."
+            }
+        }
+    }
+
+    static let shared: Result<DatabaseManager, Error> = Result {
+        try DatabaseManager()
+    }
 
     let dbPool: DatabasePool
 
-    init() {
+    init() throws {
         guard let path = Bundle.main.path(forResource: "photos", ofType: "db") else {
-            fatalError("photos.db not found in app bundle")
+            throw BundledDatabaseError.missing
         }
         var config = Configuration()
         config.readonly = true
         do {
             dbPool = try DatabasePool(path: path, configuration: config)
         } catch {
-            fatalError("Failed to open photos.db: \(error)")
+            throw BundledDatabaseError.unreadable(underlying: error)
         }
     }
 

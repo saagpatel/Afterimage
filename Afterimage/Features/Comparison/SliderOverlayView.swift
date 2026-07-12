@@ -56,8 +56,28 @@ struct SliderOverlayView: View {
             .onAppear {
                 dividerX = geo.size.width / 2
             }
-            .accessibilityElement(children: .contain)
+            .onChange(of: geo.size.width) { oldWidth, newWidth in
+                guard oldWidth > 0 else {
+                    dividerX = newWidth / 2
+                    return
+                }
+                dividerX = min(max((dividerX / oldWidth) * newWidth, 0), newWidth)
+            }
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel("Comparison slider")
+            .accessibilityValue("Present-day photo (Int((currentX / max(geo.size.width, 1)) * 100)) percent visible")
+            .accessibilityHint("Swipe up or down to adjust the comparison")
+            .accessibilityAdjustableAction { direction in
+                let step = max(geo.size.width * 0.1, 1)
+                switch direction {
+                case .increment:
+                    dividerX = min(dividerX + step, geo.size.width)
+                case .decrement:
+                    dividerX = max(dividerX - step, 0)
+                @unknown default:
+                    break
+                }
+            }
             .accessibilityIdentifier("comparison-slider")
         }
     }

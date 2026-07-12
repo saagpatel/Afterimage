@@ -12,6 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify data pipeline safety
+        run: |
+          python3 -m unittest discover -s DataPipeline -p 'test_*.py' -v
+          python3 -m compileall -q DataPipeline
+
+      - name: Verify bundled database integrity
+        run: |
+          RESULT="$(sqlite3 Afterimage/Resources/photos.db 'PRAGMA integrity_check;')"
+          test "$RESULT" = "ok"
+
+      - name: Build release configuration
+        run: |
+          xcodebuild build \
+            -scheme "Afterimage" \
+            -configuration Release \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Run tests
         run: |
           SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ { print $2; exit }')"

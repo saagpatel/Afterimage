@@ -4,18 +4,27 @@ import SwiftUI
 
 @MainActor @Observable
 final class AppState {
+    struct Notice: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+    }
+
     enum Screen {
         case camera
         case citySelector
         case galleryLocationPicker(UIImage)
         case matching(UIImage)
-        case comparison(UIImage, MatchCandidate)
+        case comparison(UIImage, [MatchCandidate])
     }
 
     var currentScreen: Screen = .camera
+    var notice: Notice?
 
-    let matchingService: MatchingService
+    let matchingService: MatchingService?
     let locationService = LocationService()
+    private let databaseErrorMessage: String?
+    private var hasReportedDatabaseError = false
 
     // Stored for nearest-city calculation on no-match
     private(set) var lastMatchLocation: CLLocation?
@@ -34,8 +43,26 @@ final class AppState {
         ("Boston",          42.3601,  -71.0589),
     ]
 
-    init() {
-        self.matchingService = MatchingService(database: DatabaseManager.shared.dbPool)
+    init(database: Result<DatabaseManager, Error> = DatabaseManager.shared) {
+        switch database {
+        case .success(let manager):
+            matchingService = MatchingService(database: manager.dbPool)
+            databaseErrorMessage = nil
+        case .failure(let error):
+            matchingService = nil
+            databaseErrorMessage = error.localizedDescription
+        }
+    }
+
+    func reportDatabaseErrorIfNeeded() async {
+        guard !hasReportedDatabaseError else { return }
+        hasReportedDatabaseError = true
+
+        guard let databaseErrorMessage else { return }
+        notice = Notice(
+            title: "Historical Photos Unavailable",
+            message: "\(databaseErrorMessage) Reinstall the app or contact support if the problem continues."
+        )
     }
 
     // MARK: - Camera flow
@@ -47,31 +74,33 @@ final class AppState {
             let authStatus = await locationService.requestPermission()
             guard authStatus == .authorized else {
                 currentScreen = .camera
+                notice = Notice(
+                    title: "Location Access Required",
+                    message: "Enable location access in Settings so Afterimage can find historical photographs near you."
+                )
                 return
             }
 
-            var location: CLLocation?
-            for await loc in locationService.startLocationUpdates() {
-                location = loc
-                break
-            }
-
-            guard let location else {
+            guard let locationReading = await AsyncTimeout.firstValue(
+                from: locationService.startLocationUpdates(),
+                timeout: .seconds(10)
+            ) else {
                 currentScreen = .camera
+                notice = Notice(
+                    title: "Location Unavailable",
+                    message: "Afterimage could not get an accurate location. Move somewhere with a clearer signal and try again."
+                )
                 return
             }
+            let location = CLLocation(
+                latitude: locationReading.latitude,
+                longitude: locationReading.longitude
+            )
 
-            var heading: CLHeading?
-            let headingStream = locationService.startHeadingUpdates()
-            let headingTask = Task<CLHeading?, Never> {
-                for await h in headingStream {
-                    return h
-                }
-                return nil
-            }
-            try? await Task.sleep(for: .seconds(1))
-            heading = await headingTask.value
-            headingTask.cancel()
+            let heading = await AsyncTimeout.firstValue(
+                from: locationService.startHeadingUpdates(),
+                timeout: .seconds(1)
+            )
 
             await runMatching(photo: photo, location: location, heading: heading)
         }
@@ -116,14 +145,22 @@ final class AppState {
 
     // MARK: - Shared matching
 
-    private func runMatching(photo: UIImage, location: CLLocation, heading: CLHeading?) async {
+    private func runMatching(photo: UIImage, location: CLLocation, heading: HeadingReading?) async {
+        guard let matchingService else {
+            currentScreen = .camera
+            notice = Notice(
+                title: "Historical Photos Unavailable",
+                message: databaseErrorMessage ?? "The historical photo database is unavailable."
+            )
+            return
+        }
         lastMatchLocation = location
         await matchingService.findMatches(for: photo, at: location, heading: heading)
 
         switch matchingService.state {
         case .found(let candidates):
-            if let best = candidates.first {
-                currentScreen = .comparison(photo, best)
+            if !candidates.isEmpty {
+                currentScreen = .comparison(photo, candidates)
             } else {
                 currentScreen = .camera
             }
@@ -197,7 +234,7 @@ extension AppState {
         candidate.compositeScore = 0.12
         candidate.confidenceLabel = .strongMatch
 
-        currentScreen = .comparison(.debugProofUser, candidate)
+        currentScreen = .comparison(.debugProofUser, [candidate])
     }
 }
 #endif

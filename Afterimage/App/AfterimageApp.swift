@@ -20,6 +20,8 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
+        @Bindable var appState = appState
+
         Group {
             switch appState.currentScreen {
             case .camera:
@@ -38,14 +40,7 @@ struct RootView: View {
                         appState.currentScreen = .citySelector
                     }
                 )
-                .task {
-                    do {
-                        let count = try await DatabaseManager.shared.photoCount
-                        print("DB opened: \(count) historical photos loaded")
-                    } catch {
-                        print("DB error: \(error)")
-                    }
-                }
+                .task { await appState.reportDatabaseErrorIfNeeded() }
 
             case .citySelector:
                 CitySelectorView(
@@ -72,10 +67,10 @@ struct RootView: View {
                 MatchingProgressView(photo: photo)
                     .environment(appState)
 
-            case .comparison(let userPhoto, let match):
+            case .comparison(let userPhoto, let matches):
                 ComparisonView(
                     userPhoto: userPhoto,
-                    match: match,
+                    matches: matches,
                     onDismiss: { appState.currentScreen = .camera }
                 )
             }
@@ -84,6 +79,13 @@ struct RootView: View {
             #if DEBUG
             appState.applyDebugLaunchArgumentsIfNeeded()
             #endif
+        }
+        .alert(item: $appState.notice) { notice in
+            Alert(
+                title: Text(notice.title),
+                message: Text(notice.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 }
@@ -100,7 +102,7 @@ struct MatchingProgressView: View {
                 .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            switch appState.matchingService.state {
+            switch appState.matchingService?.state {
             case .searching(let stage):
                 ProgressView()
                     .controlSize(.large)

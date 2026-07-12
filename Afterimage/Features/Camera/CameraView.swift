@@ -98,23 +98,31 @@ struct CameraView: View {
     }
 
     private var notDeterminedView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             Image(systemName: "camera")
-                .font(.system(size: 48))
+                .font(.largeTitle)
                 .foregroundStyle(.white)
-            Text("Tap to Enable Camera")
-                .font(.system(size: 18, weight: .semibold))
+                .accessibilityHidden(true)
+            Text("Camera Access")
+                .font(.headline)
                 .foregroundStyle(.white)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            Task {
-                await viewModel.requestPermission()
-                if case .granted = viewModel.permission {
-                    await viewModel.startSession()
+            Text("Use the camera to match this location with a historical photograph.")
+                .font(.body)
+                .foregroundStyle(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+            Button("Enable Camera") {
+                Task {
+                    await viewModel.requestPermission()
+                    if case .granted = viewModel.permission {
+                        await viewModel.startSession()
+                    }
                 }
             }
+            .buttonStyle(.borderedProminent)
+            .tint(.white)
+            .foregroundStyle(.black)
         }
+        .padding(32)
     }
 
     // MARK: - Live Preview
@@ -145,6 +153,23 @@ struct CameraView: View {
                 }
             }
 
+            if case .failed(let message) = viewModel.state {
+                VStack {
+                    Text(message)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .padding()
+                        .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 12))
+                    Button("Try Again") {
+                        Task { await viewModel.startSession() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(32)
+                .accessibilityElement(children: .combine)
+            }
+
             // Bottom bar: gallery button (left), capture button (center)
             VStack {
                 Spacer()
@@ -160,6 +185,7 @@ struct CameraView: View {
                 .padding(.bottom, 40)
             }
         }
+        .accessibilityLabel("Browse covered cities")
     }
 
     private var browseCitiesButton: some View {
@@ -172,6 +198,7 @@ struct CameraView: View {
                 .frame(width: 50, height: 50)
                 .background(.white.opacity(0.2), in: Circle())
         }
+        .accessibilityLabel("Choose a photo")
     }
 
     private var galleryButton: some View {
@@ -184,13 +211,17 @@ struct CameraView: View {
                 .frame(width: 50, height: 50)
                 .background(.white.opacity(0.2), in: Circle())
         }
+        .accessibilityLabel("Take photo")
     }
 
     private var captureButton: some View {
         Button {
             Task {
-                guard let image = try? await viewModel.capturePhoto() else { return }
-                onCapture(image)
+                do {
+                    onCapture(try await viewModel.capturePhoto())
+                } catch {
+                    // The view model publishes a visible recovery state.
+                }
             }
         } label: {
             Circle()

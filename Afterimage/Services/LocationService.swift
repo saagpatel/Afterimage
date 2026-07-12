@@ -1,5 +1,38 @@
 import CoreLocation
 
+struct HeadingReading: Sendable {
+    let trueHeading: Double
+    let accuracy: Double
+}
+
+struct LocationReading: Sendable {
+    let latitude: Double
+    let longitude: Double
+}
+
+enum AsyncTimeout {
+    static func firstValue<Element: Sendable>(
+        from stream: AsyncStream<Element>,
+        timeout: Duration
+    ) async -> Element? {
+        await withTaskGroup(of: Element?.self) { group in
+            group.addTask {
+                for await value in stream {
+                    return value
+                }
+                return nil
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let value = await group.next() ?? nil
+            group.cancelAll()
+            return value
+        }
+    }
+}
+
 @MainActor
 final class LocationService: NSObject, CLLocationManagerDelegate {
 
@@ -10,7 +43,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     private(set) var authStatus: AuthStatus = .notDetermined
     private var permissionContinuation: CheckedContinuation<AuthStatus, Never>?
-    private var headingContinuation: AsyncStream<CLHeading>.Continuation?
+    private var headingContinuation: AsyncStream<HeadingReading>.Continuation?
 
     override init() {
         super.init()
@@ -34,26 +67,33 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     // MARK: - Location Updates
 
-    func startLocationUpdates() -> AsyncStream<CLLocation> {
+    func startLocationUpdates() -> AsyncStream<LocationReading> {
         AsyncStream { continuation in
-            Task {
+            let updatesTask = Task {
                 do {
                     for try await update in CLLocationUpdate.liveUpdates(.default) {
+                        try Task.checkCancellation()
                         guard let location = update.location else { continue }
                         let accuracy = location.horizontalAccuracy
                         guard accuracy >= 0, accuracy < 100 else { continue }
-                        continuation.yield(location)
+                        continuation.yield(LocationReading(
+                            latitude: location.coordinate.latitude,
+                            longitude: location.coordinate.longitude
+                        ))
                     }
                 } catch {
                     continuation.finish()
                 }
+            }
+            continuation.onTermination = { _ in
+                updatesTask.cancel()
             }
         }
     }
 
     // MARK: - Heading Updates
 
-    func startHeadingUpdates() -> AsyncStream<CLHeading> {
+    func startHeadingUpdates() -> AsyncStream<HeadingReading> {
         AsyncStream { continuation in
             self.headingContinuation = continuation
             self.locationManager.startUpdatingHeading()
@@ -103,8 +143,12 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        let reading = HeadingReading(
+            trueHeading: newHeading.trueHeading,
+            accuracy: newHeading.headingAccuracy
+        )
         Task { @MainActor in
-            self.headingContinuation?.yield(newHeading)
+            self.headingContinuation?.yield(reading)
         }
     }
 }

@@ -24,7 +24,7 @@ final class MatchingService {
     func findMatches(
         for photo: UIImage,
         at location: CLLocation,
-        heading: CLHeading?
+        heading: HeadingReading?
     ) async {
         state = .searching(stage: "Finding nearby photos...")
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -62,13 +62,13 @@ final class MatchingService {
             }
 
             // Stage 2: Heading filter
-            if let heading, heading.headingAccuracy >= 0 {
+            if let heading, heading.accuracy >= 0 {
                 state = .searching(stage: "Filtering by direction...")
                 stageStart = CFAbsoluteTimeGetCurrent()
                 let filtered = HeadingFilter.filter(
                     candidates: candidates,
                     userHeading: heading.trueHeading,
-                    userHeadingAccuracy: heading.headingAccuracy
+                    userHeadingAccuracy: heading.accuracy
                 )
                 logger.info("Stage 2 (heading): \(candidates.count) → \(filtered.count) in \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - stageStart) * 1000))ms")
 

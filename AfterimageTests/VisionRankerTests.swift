@@ -99,14 +99,14 @@ final class VisionRankerTests: XCTestCase {
             XCTFail("Grayscale conversion failed in test setup")
             return
         }
-        let fp = try await VisionRanker.featurePrint(from: gray)
-        XCTAssertGreaterThan(fp.elementCount, 0)
+        let distance = try await VisionRanker.featureDistance(between: gray, and: gray)
+        XCTAssertEqual(distance, 0, accuracy: 0.0001)
     }
 
     func testFeaturePrintThrowsForImageWithNoCGImage() async {
         let emptyImage = UIImage()
         do {
-            _ = try await VisionRanker.featurePrint(from: emptyImage)
+            _ = try await VisionRanker.featureDistance(between: emptyImage, and: emptyImage)
             XCTFail("Expected VisionRankerError.invalidImage for empty UIImage")
         } catch VisionRankerError.invalidImage {
             // Expected
@@ -134,11 +134,7 @@ final class VisionRankerTests: XCTestCase {
             return
         }
 
-        let fpBlack = try await VisionRanker.featurePrint(from: grayBlack)
-        let fpWhite = try await VisionRanker.featurePrint(from: grayWhite)
-
-        var distance: Float = 0
-        XCTAssertNoThrow(try fpBlack.computeDistance(&distance, to: fpWhite))
+        let distance = try await VisionRanker.featureDistance(between: grayBlack, and: grayWhite)
         XCTAssertGreaterThan(distance, 0, "Feature prints for different images should differ")
     }
 
@@ -221,6 +217,37 @@ final class VisionRankerTests: XCTestCase {
         let ranked = try await VisionRanker.rank(candidates: [candidate], userPhoto: userPhoto)
         XCTAssertEqual(ranked.count, 1)
         XCTAssertEqual(ranked.first?.confidenceLabel, .strongMatch,
-            "Single candidate should receive .strongMatch (compositeScore normalises to 0)")
+            "A nearby visually identical candidate should receive .strongMatch")
+    }
+
+    func testConfidenceDoesNotDependOnOtherCandidates() async throws {
+        try skipUnlessVisionAvailable()
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
+        let image = renderer.image { context in
+            UIColor.gray.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+        }
+
+        let targetPhoto = makePhoto(id: "target")
+        var target = MatchCandidate(photo: targetPhoto, distanceMeters: 20)
+        target.thumbnail = image
+
+        let alone = try await VisionRanker.rank(candidates: [target], userPhoto: image)
+
+        let distractorPhoto = makePhoto(id: "distractor")
+        var distractor = MatchCandidate(photo: distractorPhoto, distanceMeters: 95)
+        distractor.thumbnail = image
+        let withDistractor = try await VisionRanker.rank(
+            candidates: [target, distractor],
+            userPhoto: image
+        )
+
+        let targetWithDistractor = try XCTUnwrap(withDistractor.first { $0.photo.id == "target" })
+        XCTAssertEqual(
+            alone.first?.compositeScore ?? -1,
+            targetWithDistractor.compositeScore,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(alone.first?.confidenceLabel, targetWithDistractor.confidenceLabel)
     }
 }

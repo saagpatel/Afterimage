@@ -9,15 +9,15 @@ final class CameraViewModel {
     }
 
     enum CaptureState {
-        case idle, previewing, capturing, captured(UIImage)
+        case idle, previewing, capturing, captured(UIImage), failed(String)
     }
 
     private(set) var permission: Permission = .notDetermined
     private(set) var state: CaptureState = .idle
 
-    let captureSession = AVCaptureSession()
-    private var photoOutput = AVCapturePhotoOutput()
-    private let coordinator = CameraCoordinator()
+    private let cameraController = CameraSessionController()
+
+    var captureSession: AVCaptureSession { cameraController.session }
 
     // MARK: - Permission
 
@@ -35,52 +35,16 @@ final class CameraViewModel {
 
     func startSession() async {
         guard case .granted = permission else { return }
-
-        await Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return }
-            let session = await self.captureSession
-            let output = await self.photoOutput
-
-            session.beginConfiguration()
-            defer { session.commitConfiguration() }
-
-            // Preset
-            if session.canSetSessionPreset(.photo) {
-                session.sessionPreset = .photo
-            }
-
-            // Input
-            guard let device = AVCaptureDevice.default(
-                .builtInWideAngleCamera,
-                for: .video,
-                position: .back
-            ) else {
-                return
-            }
-
-            guard let input = try? AVCaptureDeviceInput(device: device) else {
-                return
-            }
-
-            guard session.canAddInput(input) else { return }
-            session.addInput(input)
-
-            // Output
-            guard session.canAddOutput(output) else { return }
-            session.addOutput(output)
-
-            session.startRunning()
-
-            await MainActor.run {
-                self.state = .previewing
-            }
-        }.value
+        do {
+            try await cameraController.start()
+            state = .previewing
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
     }
 
     func stopSession() {
-        Task.detached(priority: .utility) { [captureSession] in
-            captureSession.stopRunning()
-        }
+        cameraController.stop()
     }
 
     // MARK: - Capture
@@ -88,11 +52,14 @@ final class CameraViewModel {
     func capturePhoto() async throws -> UIImage {
         state = .capturing
 
-        let settings = AVCapturePhotoSettings()
-        let image = try await coordinator.capturePhoto(from: photoOutput, settings: settings)
-
-        state = .captured(image)
-        return image
+        do {
+            let image = try await cameraController.capturePhoto()
+            state = .captured(image)
+            return image
+        } catch {
+            state = .failed(error.localizedDescription)
+            throw error
+        }
     }
 
     // MARK: - Helpers

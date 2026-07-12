@@ -4,6 +4,16 @@ import GRDB
 
 final class DatabaseManagerTests: XCTestCase {
 
+    @MainActor
+    func testDatabaseLoadFailureBecomesUserVisibleState() async {
+        let state = AppState(database: .failure(DatabaseManager.BundledDatabaseError.missing))
+
+        XCTAssertNil(state.matchingService)
+        await state.reportDatabaseErrorIfNeeded()
+        XCTAssertEqual(state.notice?.title, "Historical Photos Unavailable")
+        XCTAssertTrue(state.notice?.message.contains("missing") == true)
+    }
+
     // MARK: - Schema
 
     func testSchemaCreatesTable() throws {
@@ -199,5 +209,26 @@ final class DatabaseManagerTests: XCTestCase {
         let photo = makePhoto(lat: 40.7484, lon: -73.9967)
         XCTAssertEqual(photo.coordinate.latitude, 40.7484, accuracy: 0.0001)
         XCTAssertEqual(photo.coordinate.longitude, -73.9967, accuracy: 0.0001)
+    }
+
+    func testShareCompositorProducesExpectedExportSize() {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 400, height: 300))
+        let presentDay = renderer.image { context in
+            UIColor.blue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 400, height: 300))
+        }
+        let historical = renderer.image { context in
+            UIColor.brown.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 400, height: 300))
+        }
+
+        let composite = ShareCompositor.render(
+            presentDay: presentDay,
+            historical: historical,
+            caption: "Test attribution"
+        )
+
+        XCTAssertEqual(composite.size.width, 1_200)
+        XCTAssertEqual(composite.size.height, 800)
     }
 }
