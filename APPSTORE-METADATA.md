@@ -101,6 +101,7 @@ Before submission, replace this draft with physical-device steps that have been 
 - `ITSAppUsesNonExemptEncryption` is `false`.
 - `Afterimage/Resources/PrivacyInfo.xcprivacy` declares no tracking or collected-data types.
 - The bundled SQLite file opens read-only and passes `PRAGMA integrity_check`.
+- The asset catalog contains a 1024×1024 opaque App Icon and an unsigned device archive includes its `AppIcon` rendition.
 
 These facts do not replace App Store Connect privacy answers, export-compliance review, or archive validation.
 
@@ -110,7 +111,7 @@ These facts do not replace App Store Connect privacy answers, export-compliance 
 - [ ] Existing 25% Manhattan density gate passed or changed only through a documented product/data decision.
 - [ ] Physical-device camera, location, heading, Photos, comparison, and share flows passed.
 - [ ] Release device build and signed archive succeeded with the intended team/profile.
-- [ ] App icon and asset catalog validated without warnings.
+- [x] App icon and asset catalog validated in an unsigned device archive without asset-catalog warnings.
 - [ ] Privacy manifest and App Privacy answers reviewed against actual network behavior.
 - [ ] Public privacy-policy URL and support URL live and verified.
 - [ ] Current App Store screenshot requirements checked and authentic screenshots produced.
