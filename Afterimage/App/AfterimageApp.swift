@@ -52,6 +52,13 @@ struct RootView: View {
                     }
                 )
 
+            case .cityGallery(let city):
+                CityGalleryView(
+                    city: city,
+                    loadPhotos: { try await appState.cityPhotos(for: city) },
+                    onDismissed: { appState.currentScreen = .citySelector }
+                )
+
             case .galleryLocationPicker(let image):
                 LocationPickerView(
                     photo: image,

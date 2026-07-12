@@ -20,7 +20,7 @@ final class DatabaseManager: Sendable {
         try DatabaseManager()
     }
 
-    let dbPool: DatabasePool
+    let dbPool: any DatabaseReader
 
     init() throws {
         guard let path = Bundle.main.path(forResource: "photos", ofType: "db") else {
@@ -36,7 +36,7 @@ final class DatabaseManager: Sendable {
     }
 
     /// For testing with an in-memory or custom database
-    init(dbPool: DatabasePool) {
+    init(dbPool: any DatabaseReader) {
         self.dbPool = dbPool
     }
 
@@ -45,6 +45,16 @@ final class DatabaseManager: Sendable {
             try await dbPool.read { db in
                 try HistoricalPhoto.fetchCount(db)
             }
+        }
+    }
+
+    func photos(in cityID: String, limit: Int = 200) async throws -> [HistoricalPhoto] {
+        try await dbPool.read { db in
+            try HistoricalPhoto
+                .filter(HistoricalPhoto.Columns.city == cityID)
+                .order(HistoricalPhoto.Columns.dateYear.ascNullsLast)
+                .limit(limit)
+                .fetchAll(db)
         }
     }
 

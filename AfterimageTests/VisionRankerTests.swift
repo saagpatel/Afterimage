@@ -119,23 +119,32 @@ final class VisionRankerTests: XCTestCase {
         try skipUnlessVisionAvailable()
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
 
-        let blackImage = renderer.image { ctx in
-            UIColor.black.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-        }
-        let whiteImage = renderer.image { ctx in
+        let verticalBars = renderer.image { ctx in
             UIColor.white.setFill()
             ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+            UIColor.black.setFill()
+            for x in stride(from: CGFloat(0), to: 100, by: 20) {
+                ctx.fill(CGRect(x: x, y: 0, width: 10, height: 100))
+            }
+        }
+        let concentricSquares = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+            UIColor.black.setStroke()
+            ctx.cgContext.setLineWidth(6)
+            for inset in stride(from: CGFloat(8), through: 38, by: 10) {
+                ctx.cgContext.stroke(CGRect(x: inset, y: inset, width: 100 - inset * 2, height: 100 - inset * 2))
+            }
         }
 
-        guard let grayBlack = VisionRanker.grayscale(blackImage),
-              let grayWhite = VisionRanker.grayscale(whiteImage) else {
+        guard let grayBars = VisionRanker.grayscale(verticalBars),
+              let graySquares = VisionRanker.grayscale(concentricSquares) else {
             XCTFail("Grayscale conversion failed")
             return
         }
 
-        let distance = try await VisionRanker.featureDistance(between: grayBlack, and: grayWhite)
-        XCTAssertGreaterThan(distance, 0, "Feature prints for different images should differ")
+        let distance = try await VisionRanker.featureDistance(between: grayBars, and: graySquares)
+        XCTAssertGreaterThan(distance, 0.001, "Feature prints for structurally different images should differ")
     }
 
     // MARK: - Ranking

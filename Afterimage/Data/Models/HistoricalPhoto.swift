@@ -58,6 +58,7 @@ extension HistoricalPhoto {
         static let lon = Column(CodingKeys.lon)
         static let city = Column(CodingKeys.city)
         static let heading = Column(CodingKeys.heading)
+        static let dateYear = Column(CodingKeys.dateYear)
     }
 }
 

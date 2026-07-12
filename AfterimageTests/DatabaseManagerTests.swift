@@ -66,6 +66,20 @@ final class DatabaseManagerTests: XCTestCase {
         XCTAssertEqual(count, 5)
     }
 
+    func testCityPhotosAreFilteredAndLimited() async throws {
+        let nycPhotos = (0..<3).map {
+            makePhoto(id: "nyc-\($0)", lat: 40.75, lon: -73.98)
+        }
+        let sfPhoto = makePhoto(id: "sf", lat: 37.77, lon: -122.42, city: "sf")
+        let db = try makeTestDatabase(photos: nycPhotos + [sfPhoto])
+        let manager = DatabaseManager(dbPool: db)
+
+        let results = try await manager.photos(in: "nyc", limit: 2)
+
+        XCTAssertEqual(results.count, 2)
+        XCTAssertTrue(results.allSatisfy { $0.city == "nyc" })
+    }
+
     func testInsertPreservesAllFields() throws {
         let photo = HistoricalPhoto(
             id: "full-fields",

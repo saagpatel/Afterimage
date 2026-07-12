@@ -13,6 +13,7 @@ final class AppState {
     enum Screen {
         case camera
         case citySelector
+        case cityGallery(CityInfo)
         case galleryLocationPicker(UIImage)
         case matching(UIImage)
         case comparison(UIImage, [MatchCandidate])
@@ -23,6 +24,7 @@ final class AppState {
 
     let matchingService: MatchingService?
     let locationService = LocationService()
+    private let databaseManager: DatabaseManager?
     private let databaseErrorMessage: String?
     private var hasReportedDatabaseError = false
 
@@ -46,9 +48,11 @@ final class AppState {
     init(database: Result<DatabaseManager, Error> = DatabaseManager.shared) {
         switch database {
         case .success(let manager):
+            databaseManager = manager
             matchingService = MatchingService(database: manager.dbPool)
             databaseErrorMessage = nil
         case .failure(let error):
+            databaseManager = nil
             matchingService = nil
             databaseErrorMessage = error.localizedDescription
         }
@@ -108,15 +112,15 @@ final class AppState {
 
     // MARK: - City browse flow
 
-    /// Called when the user picks a city from CitySelectorView.
-    /// Runs matching centred on the city with a placeholder image (browse/explore mode).
     func onCitySelected(_ city: CityInfo) {
-        let location = CLLocation(latitude: city.coordinate.latitude, longitude: city.coordinate.longitude)
-        let placeholderImage = UIImage.placeholderWhite
-        currentScreen = .matching(placeholderImage)
-        Task {
-            await runMatching(photo: placeholderImage, location: location, heading: nil)
+        currentScreen = .cityGallery(city)
+    }
+
+    func cityPhotos(for city: CityInfo) async throws -> [HistoricalPhoto] {
+        guard let databaseManager else {
+            throw DatabaseManager.BundledDatabaseError.missing
         }
+        return try await databaseManager.photos(in: city.id)
     }
 
     // MARK: - Gallery flow
@@ -242,15 +246,6 @@ extension AppState {
 // MARK: - UIImage helpers
 
 extension UIImage {
-    /// 1×1 white image used as a placeholder when entering city browse mode (no user photo).
-    static let placeholderWhite: UIImage = {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
-        return renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
-        }
-    }()
-
     #if DEBUG
     static let debugProofUser = debugProofImage(
         topColor: UIColor(red: 0.11, green: 0.16, blue: 0.22, alpha: 1),
