@@ -10,9 +10,10 @@ import UIKit
 struct GalleryPickerView: UIViewControllerRepresentable {
     var onPicked: (UIImage, CLLocation?) -> Void
     var onCancelled: () -> Void
+    var onError: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPicked: onPicked, onCancelled: onCancelled)
+        Coordinator(onPicked: onPicked, onCancelled: onCancelled, onError: onError)
     }
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -32,10 +33,16 @@ struct GalleryPickerView: UIViewControllerRepresentable {
     final class Coordinator: NSObject, PHPickerViewControllerDelegate {
         private let onPicked: (UIImage, CLLocation?) -> Void
         private let onCancelled: () -> Void
+        private let onError: (String) -> Void
 
-        init(onPicked: @escaping (UIImage, CLLocation?) -> Void, onCancelled: @escaping () -> Void) {
+        init(
+            onPicked: @escaping (UIImage, CLLocation?) -> Void,
+            onCancelled: @escaping () -> Void,
+            onError: @escaping (String) -> Void
+        ) {
             self.onPicked = onPicked
             self.onCancelled = onCancelled
+            self.onError = onError
         }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
@@ -47,7 +54,9 @@ struct GalleryPickerView: UIViewControllerRepresentable {
             // Load image
             result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
                 guard let self, let image = object as? UIImage else {
-                    DispatchQueue.main.async { self?.onCancelled() }
+                    DispatchQueue.main.async {
+                        self?.onError("That photo could not be loaded. Choose a different image and try again.")
+                    }
                     return
                 }
 

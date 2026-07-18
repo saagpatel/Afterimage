@@ -4,10 +4,16 @@ import SwiftUI
 
 @MainActor @Observable
 final class AppState {
+    enum CaptureContext {
+        case ready(CLLocation, CLHeading?)
+        case recovery(String)
+    }
+
     enum Screen {
         case camera
         case citySelector
         case galleryLocationPicker(UIImage)
+        case captureRecovery(UIImage, String)
         case matching(UIImage)
         case comparison(UIImage, MatchCandidate)
     }
@@ -15,7 +21,9 @@ final class AppState {
     var currentScreen: Screen = .camera
 
     let matchingService: MatchingService
-    let locationService = LocationService()
+    let locationService: any LocationProviding
+    private let locationTimeout: Duration
+    private let headingTimeout: Duration
 
     // Stored for nearest-city calculation on no-match
     private(set) var lastMatchLocation: CLLocation?
@@ -34,8 +42,17 @@ final class AppState {
         ("Boston",          42.3601,  -71.0589),
     ]
 
-    init() {
-        self.matchingService = MatchingService(database: DatabaseManager.shared.dbPool)
+    init(
+        matchingService: MatchingService? = nil,
+        locationService: (any LocationProviding)? = nil,
+        locationTimeout: Duration = .seconds(10),
+        headingTimeout: Duration = .seconds(1)
+    ) {
+        self.matchingService =
+            matchingService ?? MatchingService(database: DatabaseManager.shared.dbPool)
+        self.locationService = locationService ?? LocationService()
+        self.locationTimeout = locationTimeout
+        self.headingTimeout = headingTimeout
     }
 
     // MARK: - Camera flow
@@ -44,37 +61,57 @@ final class AppState {
         currentScreen = .matching(photo)
 
         Task {
-            let authStatus = await locationService.requestPermission()
-            guard authStatus == .authorized else {
-                currentScreen = .camera
-                return
+            switch await acquireCaptureContext() {
+            case .ready(let location, let heading):
+                await runMatching(photo: photo, location: location, heading: heading)
+            case .recovery(let message):
+                currentScreen = .captureRecovery(photo, message)
             }
-
-            var location: CLLocation?
-            for await loc in locationService.startLocationUpdates() {
-                location = loc
-                break
-            }
-
-            guard let location else {
-                currentScreen = .camera
-                return
-            }
-
-            var heading: CLHeading?
-            let headingStream = locationService.startHeadingUpdates()
-            let headingTask = Task<CLHeading?, Never> {
-                for await h in headingStream {
-                    return h
-                }
-                return nil
-            }
-            try? await Task.sleep(for: .seconds(1))
-            heading = await headingTask.value
-            headingTask.cancel()
-
-            await runMatching(photo: photo, location: location, heading: heading)
         }
+    }
+
+    func acquireCaptureContext() async -> CaptureContext {
+        locationService.refreshAuthorization()
+        let authStatus = await locationService.requestPermission()
+        guard authStatus == .authorized else {
+            return .recovery(
+                "Location access is needed to find nearby history. You can choose a location manually or enable access in Settings."
+            )
+        }
+        defer { locationService.stop() }
+
+        let locationTask = Task<CLLocation?, Never> {
+            for await location in locationService.startLocationUpdates() {
+                return location
+            }
+            return nil
+        }
+        let locationDeadline = Task {
+            try? await Task.sleep(for: locationTimeout)
+            locationTask.cancel()
+        }
+        let location = await locationTask.value
+        locationDeadline.cancel()
+
+        guard let location else {
+            return .recovery(
+                "A reliable location did not arrive. Choose the location manually or try again somewhere with a clearer GPS signal."
+            )
+        }
+
+        let headingTask = Task<CLHeading?, Never> {
+            for await heading in locationService.startHeadingUpdates() {
+                return heading
+            }
+            return nil
+        }
+        let headingDeadline = Task {
+            try? await Task.sleep(for: headingTimeout)
+            headingTask.cancel()
+        }
+        let heading = await headingTask.value
+        headingDeadline.cancel()
+        return .ready(location, heading)
     }
 
     // MARK: - City browse flow

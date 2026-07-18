@@ -4,12 +4,12 @@ import Observation
 
 @MainActor @Observable
 final class CameraViewModel {
-    enum Permission {
+    enum Permission: Equatable {
         case notDetermined, granted, denied
     }
 
     enum CaptureState {
-        case idle, previewing, capturing, captured(UIImage)
+        case idle, previewing, capturing, captured(UIImage), unavailable(String), failed(String)
     }
 
     private(set) var permission: Permission = .notDetermined
@@ -18,6 +18,12 @@ final class CameraViewModel {
     let captureSession = AVCaptureSession()
     private var photoOutput = AVCapturePhotoOutput()
     private let coordinator = CameraCoordinator()
+    private var isStartingSession = false
+
+    var canCapture: Bool {
+        if case .previewing = state { return true }
+        return false
+    }
 
     // MARK: - Permission
 
@@ -35,6 +41,13 @@ final class CameraViewModel {
 
     func startSession() async {
         guard case .granted = permission else { return }
+        guard !isStartingSession else { return }
+        if captureSession.isRunning {
+            state = .previewing
+            return
+        }
+        isStartingSession = true
+        defer { isStartingSession = false }
 
         await Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -55,19 +68,39 @@ final class CameraViewModel {
                 for: .video,
                 position: .back
             ) else {
+                await MainActor.run {
+                    self.state = .unavailable("No rear camera is available. You can still use a photo or browse a city.")
+                }
                 return
             }
 
             guard let input = try? AVCaptureDeviceInput(device: device) else {
+                await MainActor.run {
+                    self.state = .unavailable("The camera could not be started. You can still use a photo or browse a city.")
+                }
                 return
             }
 
-            guard session.canAddInput(input) else { return }
-            session.addInput(input)
+            if session.inputs.isEmpty {
+                guard session.canAddInput(input) else {
+                    await MainActor.run {
+                        self.state = .unavailable("The camera is unavailable. You can still use a photo or browse a city.")
+                    }
+                    return
+                }
+                session.addInput(input)
+            }
 
             // Output
-            guard session.canAddOutput(output) else { return }
-            session.addOutput(output)
+            if session.outputs.isEmpty {
+                guard session.canAddOutput(output) else {
+                    await MainActor.run {
+                        self.state = .unavailable("Photo capture is unavailable. You can still use a photo or browse a city.")
+                    }
+                    return
+                }
+                session.addOutput(output)
+            }
 
             session.startRunning()
 
@@ -86,13 +119,25 @@ final class CameraViewModel {
     // MARK: - Capture
 
     func capturePhoto() async throws -> UIImage {
+        guard canCapture else {
+            throw NSError(
+                domain: "Afterimage.Camera",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Camera is not ready"]
+            )
+        }
         state = .capturing
 
         let settings = AVCapturePhotoSettings()
-        let image = try await coordinator.capturePhoto(from: photoOutput, settings: settings)
+        do {
+            let image = try await coordinator.capturePhoto(from: photoOutput, settings: settings)
 
-        state = .captured(image)
-        return image
+            state = .captured(image)
+            return image
+        } catch {
+            state = .failed("The photo could not be captured. Try again or choose one from Photos.")
+            throw error
+        }
     }
 
     // MARK: - Helpers

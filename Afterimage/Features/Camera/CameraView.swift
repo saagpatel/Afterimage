@@ -32,6 +32,8 @@ struct CameraView: View {
 
     @State private var viewModel = CameraViewModel()
     @State private var showingGalleryPicker = false
+    @State private var errorMessage: String?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -39,10 +41,10 @@ struct CameraView: View {
 
             switch viewModel.permission {
             case .denied:
-                deniedView
+                permissionContainer(deniedView)
 
             case .notDetermined:
-                notDeterminedView
+                permissionContainer(notDeterminedView)
 
             case .granted:
                 livePreviewView
@@ -65,23 +67,61 @@ struct CameraView: View {
                 },
                 onCancelled: {
                     showingGalleryPicker = false
+                },
+                onError: { message in
+                    showingGalleryPicker = false
+                    errorMessage = message
                 }
             )
             .ignoresSafeArea()
         }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                viewModel.checkPermission()
+                if case .granted = viewModel.permission {
+                    Task { await viewModel.startSession() }
+                }
+            case .background, .inactive:
+                viewModel.stopSession()
+            @unknown default:
+                break
+            }
+        }
+        .alert(
+            "Afterimage needs your attention",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     // MARK: - Permission States
+
+    private func permissionContainer<Content: View>(_ content: Content) -> some View {
+        VStack(spacing: 24) {
+            Spacer(minLength: 24)
+            content
+            alternativeActions
+            Spacer(minLength: 24)
+        }
+        .padding(.horizontal, 24)
+    }
 
     private var deniedView: some View {
         VStack(spacing: 16) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.white)
-            Text("Camera Access Required")
+            Text("Camera Access Is Off")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("Enable camera access in Settings to use Afterimage.")
+            Text("Enable Camera in Settings to take a new photo, or continue with Photos or city browse below.")
                 .font(.system(size: 14))
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -105,6 +145,11 @@ struct CameraView: View {
             Text("Tap to Enable Camera")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
+            Text("Match today’s view with a historical photo. Camera access is optional—you can also choose a photo or browse a covered city.")
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -123,6 +168,12 @@ struct CameraView: View {
         ZStack {
             CameraPreview(session: viewModel.captureSession)
                 .ignoresSafeArea()
+
+            if case .unavailable(let message) = viewModel.state {
+                cameraStatusOverlay(message)
+            } else if case .failed(let message) = viewModel.state {
+                cameraStatusOverlay(message)
+            }
 
             // Captured thumbnail (top-right)
             if case .captured(let image) = viewModel.state {
@@ -172,6 +223,7 @@ struct CameraView: View {
                 .frame(width: 50, height: 50)
                 .background(.white.opacity(0.2), in: Circle())
         }
+        .accessibilityLabel("Browse covered cities")
     }
 
     private var galleryButton: some View {
@@ -184,13 +236,18 @@ struct CameraView: View {
                 .frame(width: 50, height: 50)
                 .background(.white.opacity(0.2), in: Circle())
         }
+        .accessibilityLabel("Choose a photo")
     }
 
     private var captureButton: some View {
         Button {
             Task {
-                guard let image = try? await viewModel.capturePhoto() else { return }
-                onCapture(image)
+                do {
+                    let image = try await viewModel.capturePhoto()
+                    onCapture(image)
+                } catch {
+                    errorMessage = "The photo could not be captured. Try again or choose one from Photos."
+                }
             }
         } label: {
             Circle()
@@ -202,9 +259,38 @@ struct CameraView: View {
                         .frame(width: 82, height: 82)
                 )
         }
-        .disabled({
-            if case .capturing = viewModel.state { return true }
-            return false
-        }())
+        .disabled(!viewModel.canCapture)
+        .accessibilityLabel("Take photo")
+    }
+
+    private var alternativeActions: some View {
+        VStack(spacing: 12) {
+            Button("Choose a Photo") {
+                showingGalleryPicker = true
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.white)
+            .foregroundStyle(.black)
+
+            Button("Browse Covered Cities") {
+                onBrowseCities?()
+            }
+            .buttonStyle(.bordered)
+            .tint(.white)
+        }
+    }
+
+    private func cameraStatusOverlay(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 36))
+            Text(message)
+                .multilineTextAlignment(.center)
+            alternativeActions
+        }
+        .foregroundStyle(.white)
+        .padding(24)
+        .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 16))
+        .padding()
     }
 }

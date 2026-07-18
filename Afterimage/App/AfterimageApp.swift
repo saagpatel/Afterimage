@@ -18,6 +18,7 @@ struct AfterimageApp: App {
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -68,6 +69,21 @@ struct RootView: View {
                     }
                 )
 
+            case .captureRecovery(let image, let message):
+                CaptureRecoveryView(
+                    photo: image,
+                    message: message,
+                    onChooseLocation: {
+                        appState.currentScreen = .galleryLocationPicker(image)
+                    },
+                    onBrowseCities: {
+                        appState.currentScreen = .citySelector
+                    },
+                    onStartOver: {
+                        appState.currentScreen = .camera
+                    }
+                )
+
             case .matching(let photo):
                 MatchingProgressView(photo: photo)
                     .environment(appState)
@@ -81,10 +97,47 @@ struct RootView: View {
             }
         }
         .onAppear {
+            appState.locationService.refreshAuthorization()
             #if DEBUG
             appState.applyDebugLaunchArgumentsIfNeeded()
             #endif
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                appState.locationService.refreshAuthorization()
+            }
+        }
+    }
+}
+
+struct CaptureRecoveryView: View {
+    let photo: UIImage
+    let message: String
+    let onChooseLocation: () -> Void
+    let onBrowseCities: () -> Void
+    let onStartOver: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(uiImage: photo)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            Text("Your photo is still here")
+                .font(.title2.bold())
+            Text(message)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Choose Location Manually", action: onChooseLocation)
+                .buttonStyle(.borderedProminent)
+            Button("Browse Covered Cities", action: onBrowseCities)
+                .buttonStyle(.bordered)
+            Button("Start Over", action: onStartOver)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+        }
+        .padding(28)
     }
 }
 
