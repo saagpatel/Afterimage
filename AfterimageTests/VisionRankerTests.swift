@@ -6,13 +6,35 @@ final class VisionRankerTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Renders an image and returns its Vision feature print, or nil if unavailable.
-    private static func featurePrint(
-        size: CGFloat = 64,
-        _ draw: (UIGraphicsImageRendererContext) -> Void
-    ) -> VNFeaturePrintObservation? {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
-        guard let cg = renderer.image(actions: draw).cgImage else { return nil }
+    /// A half-field stripe. Structure a feature descriptor can actually encode.
+    private static func stripeImage(size: CGFloat = 100) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+            UIColor.black.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size / 2, height: size))
+        }
+    }
+
+    /// A centred circle. Structurally distinct from the stripe at the same size.
+    private static func circleImage(size: CGFloat = 100) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+            UIColor.black.setFill()
+            ctx.cgContext.fillEllipse(
+                in: CGRect(x: size / 4, y: size / 4, width: size / 2, height: size / 2)
+            )
+        }
+    }
+
+    /// Grayscales through `VisionRanker`, then returns the feature print, or nil.
+    ///
+    /// Synchronous counterpart of `VisionRanker.featurePrint(from:)`, which wraps this
+    /// same request in a detached task. The availability probe lives in a lazy static
+    /// and cannot await, so it needs a non-async path that is otherwise identical.
+    private static func grayFeaturePrint(_ image: UIImage) -> VNFeaturePrintObservation? {
+        guard let gray = VisionRanker.grayscale(image), let cg = gray.cgImage else { return nil }
         let request = VNGenerateImageFeaturePrintRequest()
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         do {
@@ -23,29 +45,24 @@ final class VisionRankerTests: XCTestCase {
         }
     }
 
-    /// Vision feature print requires Neural Engine / ANE — not available on all simulators.
-    /// Returns true only if Vision can actually DISTINGUISH two different images here.
+    /// True only when Vision can distinguish the exact image pair the guarded tests use,
+    /// travelling the exact path they travel: `VisionRanker.grayscale`, then a feature
+    /// print, then `computeDistance`.
     ///
-    /// Checking that a `VNFeaturePrintObservation` merely came back is not sufficient.
-    /// On a simulator without an ANE, Vision still returns an observation, but its
-    /// descriptor is degenerate, so every image compares identical (distance 0). The
-    /// weaker probe therefore reported "available", the suite ran, and
-    /// `testFeaturePrintDifferentImagesProduceDifferentVectors` failed for
-    /// environmental reasons rather than a real defect — CI on this repo has never
-    /// been green because of it. Probe the capability the tests actually depend on.
+    /// Vision feature prints need the Neural Engine, which simulators lack. Vision still
+    /// returns an observation there, but the descriptor can be degenerate, so every image
+    /// compares identical at distance 0 and the assertion below fails for environmental
+    /// reasons rather than a real defect.
+    ///
+    /// Two earlier probes were too weak to catch that. The first only checked a
+    /// `VNFeaturePrintObservation` came back at all. The second compared raw 64pt renders
+    /// and skipped grayscale entirely: on CI it reported "available" while the test it
+    /// guards measured distance 0 on the grayscaled 100pt pair, so the suite ran and
+    /// failed anyway. A probe that does not travel the guarded path does not guard it.
+    /// Sharing the images and the preprocessing makes "available" a real precondition.
     private static var visionAvailable: Bool = {
-        guard let stripe = featurePrint({ ctx in
-                  UIColor.white.setFill()
-                  ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
-                  UIColor.black.setFill()
-                  ctx.fill(CGRect(x: 0, y: 0, width: 32, height: 64))
-              }),
-              let circle = featurePrint({ ctx in
-                  UIColor.white.setFill()
-                  ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
-                  UIColor.black.setFill()
-                  ctx.cgContext.fillEllipse(in: CGRect(x: 16, y: 16, width: 32, height: 32))
-              }),
+        guard let stripe = grayFeaturePrint(stripeImage()),
+              let circle = grayFeaturePrint(circleImage()),
               stripe.elementCount > 0
         else { return false }
 
@@ -146,26 +163,14 @@ final class VisionRankerTests: XCTestCase {
 
     func testFeaturePrintDifferentImagesProduceDifferentVectors() async throws {
         try skipUnlessVisionAvailable()
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
 
         // Structured images rather than flat fills. A uniform image carries no features
         // for the descriptor to encode, so two flat images can legitimately produce
         // identical feature prints — asserting they differ tests nothing about Vision.
-        let stripeImage = renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-            UIColor.black.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 50, height: 100))
-        }
-        let circleImage = renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-            UIColor.black.setFill()
-            ctx.cgContext.fillEllipse(in: CGRect(x: 25, y: 25, width: 50, height: 50))
-        }
-
-        guard let grayStripe = VisionRanker.grayscale(stripeImage),
-              let grayCircle = VisionRanker.grayscale(circleImage) else {
+        // These are the same renders `visionAvailable` probes, so a probe that reports
+        // "available" has already demonstrated this assertion can hold here.
+        guard let grayStripe = VisionRanker.grayscale(Self.stripeImage()),
+              let grayCircle = VisionRanker.grayscale(Self.circleImage()) else {
             XCTFail("Grayscale conversion failed")
             return
         }
