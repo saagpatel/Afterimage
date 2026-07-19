@@ -6,23 +6,52 @@ final class VisionRankerTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Vision feature print requires Neural Engine / ANE — not available on all simulators.
-    /// Returns true if Vision can generate a feature print on this device.
-    private static var visionAvailable: Bool = {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 50, height: 50))
-        let img = renderer.image { ctx in
-            UIColor.gray.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 50, height: 50))
-        }
-        guard let cg = img.cgImage else { return false }
+    /// Renders an image and returns its Vision feature print, or nil if unavailable.
+    private static func featurePrint(
+        size: CGFloat = 64,
+        _ draw: (UIGraphicsImageRendererContext) -> Void
+    ) -> VNFeaturePrintObservation? {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+        guard let cg = renderer.image(actions: draw).cgImage else { return nil }
         let request = VNGenerateImageFeaturePrintRequest()
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         do {
             try handler.perform([request])
-            return request.results?.first is VNFeaturePrintObservation
+            return request.results?.first as? VNFeaturePrintObservation
         } catch {
-            return false
+            return nil
         }
+    }
+
+    /// Vision feature print requires Neural Engine / ANE — not available on all simulators.
+    /// Returns true only if Vision can actually DISTINGUISH two different images here.
+    ///
+    /// Checking that a `VNFeaturePrintObservation` merely came back is not sufficient.
+    /// On a simulator without an ANE, Vision still returns an observation, but its
+    /// descriptor is degenerate, so every image compares identical (distance 0). The
+    /// weaker probe therefore reported "available", the suite ran, and
+    /// `testFeaturePrintDifferentImagesProduceDifferentVectors` failed for
+    /// environmental reasons rather than a real defect — CI on this repo has never
+    /// been green because of it. Probe the capability the tests actually depend on.
+    private static var visionAvailable: Bool = {
+        guard let stripe = featurePrint({ ctx in
+                  UIColor.white.setFill()
+                  ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
+                  UIColor.black.setFill()
+                  ctx.fill(CGRect(x: 0, y: 0, width: 32, height: 64))
+              }),
+              let circle = featurePrint({ ctx in
+                  UIColor.white.setFill()
+                  ctx.fill(CGRect(x: 0, y: 0, width: 64, height: 64))
+                  UIColor.black.setFill()
+                  ctx.cgContext.fillEllipse(in: CGRect(x: 16, y: 16, width: 32, height: 32))
+              }),
+              stripe.elementCount > 0
+        else { return false }
+
+        var distance: Float = 0
+        guard (try? stripe.computeDistance(&distance, to: circle)) != nil else { return false }
+        return distance > 0
     }()
 
     private func skipUnlessVisionAvailable() throws {
@@ -119,26 +148,33 @@ final class VisionRankerTests: XCTestCase {
         try skipUnlessVisionAvailable()
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
 
-        let blackImage = renderer.image { ctx in
-            UIColor.black.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-        }
-        let whiteImage = renderer.image { ctx in
+        // Structured images rather than flat fills. A uniform image carries no features
+        // for the descriptor to encode, so two flat images can legitimately produce
+        // identical feature prints — asserting they differ tests nothing about Vision.
+        let stripeImage = renderer.image { ctx in
             UIColor.white.setFill()
             ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+            UIColor.black.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 50, height: 100))
+        }
+        let circleImage = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+            UIColor.black.setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: 25, y: 25, width: 50, height: 50))
         }
 
-        guard let grayBlack = VisionRanker.grayscale(blackImage),
-              let grayWhite = VisionRanker.grayscale(whiteImage) else {
+        guard let grayStripe = VisionRanker.grayscale(stripeImage),
+              let grayCircle = VisionRanker.grayscale(circleImage) else {
             XCTFail("Grayscale conversion failed")
             return
         }
 
-        let fpBlack = try await VisionRanker.featurePrint(from: grayBlack)
-        let fpWhite = try await VisionRanker.featurePrint(from: grayWhite)
+        let fpStripe = try await VisionRanker.featurePrint(from: grayStripe)
+        let fpCircle = try await VisionRanker.featurePrint(from: grayCircle)
 
         var distance: Float = 0
-        XCTAssertNoThrow(try fpBlack.computeDistance(&distance, to: fpWhite))
+        XCTAssertNoThrow(try fpStripe.computeDistance(&distance, to: fpCircle))
         XCTAssertGreaterThan(distance, 0, "Feature prints for different images should differ")
     }
 
