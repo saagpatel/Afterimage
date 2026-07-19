@@ -6,23 +6,96 @@ final class VisionRankerTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Vision feature print requires Neural Engine / ANE — not available on all simulators.
-    /// Returns true if Vision can generate a feature print on this device.
-    private static var visionAvailable: Bool = {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 50, height: 50))
-        let img = renderer.image { ctx in
-            UIColor.gray.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 50, height: 50))
+    /// A half-field stripe. Structure a feature descriptor can actually encode.
+    private static func stripeImage(size: CGFloat = 100) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+            UIColor.black.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size / 2, height: size))
         }
-        guard let cg = img.cgImage else { return false }
+    }
+
+    /// A centred circle. Structurally distinct from the stripe at the same size.
+    private static func circleImage(size: CGFloat = 100) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+            UIColor.black.setFill()
+            ctx.cgContext.fillEllipse(
+                in: CGRect(x: size / 4, y: size / 4, width: size / 2, height: size / 2)
+            )
+        }
+    }
+
+    /// Grayscales through `VisionRanker`, then returns the feature print, or nil.
+    ///
+    /// Synchronous counterpart of `VisionRanker.featurePrint(from:)`, which wraps this
+    /// same request in a detached task. The availability probe lives in a lazy static
+    /// and cannot await, so it needs a non-async path that is otherwise identical.
+    private static func grayFeaturePrint(_ image: UIImage) -> VNFeaturePrintObservation? {
+        guard let gray = VisionRanker.grayscale(image), let cg = gray.cgImage else { return nil }
         let request = VNGenerateImageFeaturePrintRequest()
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         do {
             try handler.perform([request])
-            return request.results?.first is VNFeaturePrintObservation
+            return request.results?.first as? VNFeaturePrintObservation
         } catch {
+            return nil
+        }
+    }
+
+    /// True only when Vision can distinguish the exact image pair the guarded tests use,
+    /// travelling the exact path they travel: `VisionRanker.grayscale`, then a feature
+    /// print, then `computeDistance`.
+    ///
+    /// Vision feature prints need the Neural Engine, which simulators lack. Vision still
+    /// returns an observation there, but the descriptor can be degenerate, so every image
+    /// compares identical at distance 0 and the assertion below fails for environmental
+    /// reasons rather than a real defect.
+    ///
+    /// Three earlier probes were too weak to catch that, each in its own way. The first
+    /// only checked a `VNFeaturePrintObservation` came back at all. The second compared
+    /// raw 64pt renders and skipped grayscale, certifying a path it never travelled. The
+    /// third shared the images and the preprocessing but still tested `distance > 0`,
+    /// and that is the flaw this constant fixes: on CI the probe measured 0.00178 while
+    /// the identical call moments later measured exactly 0 (run 29699344806). Noise
+    /// cleared a `> 0` bar. The descriptors were not distinguishing anything.
+    ///
+    /// So "can Vision tell these apart" needs a magnitude, not a sign.
+    ///
+    /// A half-black stripe and a centred circle are about as structurally different as
+    /// two monochrome images get, and on a working Neural Engine their 768-dimension
+    /// descriptors separate by orders of magnitude more than this. The bar sits ~50x
+    /// above the measured simulator noise floor and far below any genuine separation,
+    /// so it cleanly splits the two cases.
+    ///
+    /// Calibrated from the CI noise floor upward, not from a device measurement
+    /// downward: this machine's Vision is unavailable, so the upper side is reasoned
+    /// rather than observed. If a real device ever reports "unavailable", that is the
+    /// number to re-measure first.
+    static let minimumDiscrimination: Float = 0.1
+
+    /// What the probe measured, so a downstream failure can report it rather than
+    /// inviting another guess. Diagnosing this from assumption failed three times.
+    private static var probeReport = "probe did not run"
+
+    private static var visionAvailable: Bool = {
+        guard let stripe = grayFeaturePrint(stripeImage()),
+              let circle = grayFeaturePrint(circleImage())
+        else {
+            probeReport = "grayscale or feature print returned nil"
             return false
         }
+
+        var distance: Float = 0
+        guard (try? stripe.computeDistance(&distance, to: circle)) != nil else {
+            probeReport = "computeDistance threw (elementCount=\(stripe.elementCount))"
+            return false
+        }
+        probeReport = "distance=\(distance) (bar=\(minimumDiscrimination)) "
+            + "elementCount=\(stripe.elementCount)"
+        return stripe.elementCount > 0 && distance >= minimumDiscrimination
     }()
 
     private func skipUnlessVisionAvailable() throws {
@@ -117,29 +190,48 @@ final class VisionRankerTests: XCTestCase {
 
     func testFeaturePrintDifferentImagesProduceDifferentVectors() async throws {
         try skipUnlessVisionAvailable()
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
 
-        let blackImage = renderer.image { ctx in
-            UIColor.black.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-        }
-        let whiteImage = renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-        }
-
-        guard let grayBlack = VisionRanker.grayscale(blackImage),
-              let grayWhite = VisionRanker.grayscale(whiteImage) else {
+        // Structured images rather than flat fills. A uniform image carries no features
+        // for the descriptor to encode, so two flat images can legitimately produce
+        // identical feature prints — asserting they differ tests nothing about Vision.
+        // These are the same renders `visionAvailable` probes, so a probe that reports
+        // "available" has already demonstrated this assertion can hold here.
+        guard let grayStripe = VisionRanker.grayscale(Self.stripeImage()),
+              let grayCircle = VisionRanker.grayscale(Self.circleImage()) else {
             XCTFail("Grayscale conversion failed")
             return
         }
 
-        let fpBlack = try await VisionRanker.featurePrint(from: grayBlack)
-        let fpWhite = try await VisionRanker.featurePrint(from: grayWhite)
+        let fpStripe = try await VisionRanker.featurePrint(from: grayStripe)
+        let fpCircle = try await VisionRanker.featurePrint(from: grayCircle)
+
+        // Re-measure the probe's own comparison here, synchronously, on images built
+        // the same way. If this disagrees with the async measurement below then the
+        // difference is the dispatch, not the inputs; if it agrees, the probe's earlier
+        // reading is what needs explaining. Diagnosing this from assumption failed
+        // twice, so the failure message carries the numbers.
+        var syncDistance: Float = -1
+        if let s = Self.grayFeaturePrint(Self.stripeImage()),
+           let c = Self.grayFeaturePrint(Self.circleImage()) {
+            _ = try? s.computeDistance(&syncDistance, to: c)
+        }
 
         var distance: Float = 0
-        XCTAssertNoThrow(try fpBlack.computeDistance(&distance, to: fpWhite))
-        XCTAssertGreaterThan(distance, 0, "Feature prints for different images should differ")
+        XCTAssertNoThrow(try fpStripe.computeDistance(&distance, to: fpCircle))
+        // Same bar the probe cleared, so "available" and "asserts successfully" are one
+        // contract. Asserting `> 0` here would accept the noise the probe now rejects.
+        XCTAssertGreaterThanOrEqual(
+            distance, Self.minimumDiscrimination,
+            """
+            Feature prints for structurally different images should separate by more \
+            than noise.
+            async(via VisionRanker.featurePrint)=\(distance) \
+            sync(same call as probe)=\(syncDistance) \
+            bar=\(Self.minimumDiscrimination) \
+            elementCount stripe=\(fpStripe.elementCount) circle=\(fpCircle.elementCount) \
+            probeAtLaunch[\(Self.probeReport)]
+            """
+        )
     }
 
     // MARK: - Ranking
