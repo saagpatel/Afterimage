@@ -60,15 +60,26 @@ final class VisionRankerTests: XCTestCase {
     /// guards measured distance 0 on the grayscaled 100pt pair, so the suite ran and
     /// failed anyway. A probe that does not travel the guarded path does not guard it.
     /// Sharing the images and the preprocessing makes "available" a real precondition.
+    /// What the probe actually measured, so a failure downstream can report it.
+    /// The probe reporting "available" while the guarded test measures 0 is a
+    /// contradiction on identical inputs, and the two numbers are the evidence.
+    private static var probeReport = "probe did not run"
+
     private static var visionAvailable: Bool = {
         guard let stripe = grayFeaturePrint(stripeImage()),
-              let circle = grayFeaturePrint(circleImage()),
-              stripe.elementCount > 0
-        else { return false }
+              let circle = grayFeaturePrint(circleImage())
+        else {
+            probeReport = "grayscale or feature print returned nil"
+            return false
+        }
 
         var distance: Float = 0
-        guard (try? stripe.computeDistance(&distance, to: circle)) != nil else { return false }
-        return distance > 0
+        guard (try? stripe.computeDistance(&distance, to: circle)) != nil else {
+            probeReport = "computeDistance threw (elementCount=\(stripe.elementCount))"
+            return false
+        }
+        probeReport = "distance=\(distance) elementCount=\(stripe.elementCount)"
+        return stripe.elementCount > 0 && distance > 0
     }()
 
     private func skipUnlessVisionAvailable() throws {
@@ -178,9 +189,29 @@ final class VisionRankerTests: XCTestCase {
         let fpStripe = try await VisionRanker.featurePrint(from: grayStripe)
         let fpCircle = try await VisionRanker.featurePrint(from: grayCircle)
 
+        // Re-measure the probe's own comparison here, synchronously, on images built
+        // the same way. If this disagrees with the async measurement below then the
+        // difference is the dispatch, not the inputs; if it agrees, the probe's earlier
+        // reading is what needs explaining. Diagnosing this from assumption failed
+        // twice, so the failure message carries the numbers.
+        var syncDistance: Float = -1
+        if let s = Self.grayFeaturePrint(Self.stripeImage()),
+           let c = Self.grayFeaturePrint(Self.circleImage()) {
+            _ = try? s.computeDistance(&syncDistance, to: c)
+        }
+
         var distance: Float = 0
         XCTAssertNoThrow(try fpStripe.computeDistance(&distance, to: fpCircle))
-        XCTAssertGreaterThan(distance, 0, "Feature prints for different images should differ")
+        XCTAssertGreaterThan(
+            distance, 0,
+            """
+            Feature prints for different images should differ.
+            async(via VisionRanker.featurePrint)=\(distance) \
+            sync(same call as probe)=\(syncDistance) \
+            elementCount stripe=\(fpStripe.elementCount) circle=\(fpCircle.elementCount) \
+            probeAtLaunch[\(Self.probeReport)]
+            """
+        )
     }
 
     // MARK: - Ranking
