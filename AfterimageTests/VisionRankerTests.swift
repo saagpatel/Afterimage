@@ -54,15 +54,30 @@ final class VisionRankerTests: XCTestCase {
     /// compares identical at distance 0 and the assertion below fails for environmental
     /// reasons rather than a real defect.
     ///
-    /// Two earlier probes were too weak to catch that. The first only checked a
-    /// `VNFeaturePrintObservation` came back at all. The second compared raw 64pt renders
-    /// and skipped grayscale entirely: on CI it reported "available" while the test it
-    /// guards measured distance 0 on the grayscaled 100pt pair, so the suite ran and
-    /// failed anyway. A probe that does not travel the guarded path does not guard it.
-    /// Sharing the images and the preprocessing makes "available" a real precondition.
-    /// What the probe actually measured, so a failure downstream can report it.
-    /// The probe reporting "available" while the guarded test measures 0 is a
-    /// contradiction on identical inputs, and the two numbers are the evidence.
+    /// Three earlier probes were too weak to catch that, each in its own way. The first
+    /// only checked a `VNFeaturePrintObservation` came back at all. The second compared
+    /// raw 64pt renders and skipped grayscale, certifying a path it never travelled. The
+    /// third shared the images and the preprocessing but still tested `distance > 0`,
+    /// and that is the flaw this constant fixes: on CI the probe measured 0.00178 while
+    /// the identical call moments later measured exactly 0 (run 29699344806). Noise
+    /// cleared a `> 0` bar. The descriptors were not distinguishing anything.
+    ///
+    /// So "can Vision tell these apart" needs a magnitude, not a sign.
+    ///
+    /// A half-black stripe and a centred circle are about as structurally different as
+    /// two monochrome images get, and on a working Neural Engine their 768-dimension
+    /// descriptors separate by orders of magnitude more than this. The bar sits ~50x
+    /// above the measured simulator noise floor and far below any genuine separation,
+    /// so it cleanly splits the two cases.
+    ///
+    /// Calibrated from the CI noise floor upward, not from a device measurement
+    /// downward: this machine's Vision is unavailable, so the upper side is reasoned
+    /// rather than observed. If a real device ever reports "unavailable", that is the
+    /// number to re-measure first.
+    static let minimumDiscrimination: Float = 0.1
+
+    /// What the probe measured, so a downstream failure can report it rather than
+    /// inviting another guess. Diagnosing this from assumption failed three times.
     private static var probeReport = "probe did not run"
 
     private static var visionAvailable: Bool = {
@@ -78,8 +93,9 @@ final class VisionRankerTests: XCTestCase {
             probeReport = "computeDistance threw (elementCount=\(stripe.elementCount))"
             return false
         }
-        probeReport = "distance=\(distance) elementCount=\(stripe.elementCount)"
-        return stripe.elementCount > 0 && distance > 0
+        probeReport = "distance=\(distance) (bar=\(minimumDiscrimination)) "
+            + "elementCount=\(stripe.elementCount)"
+        return stripe.elementCount > 0 && distance >= minimumDiscrimination
     }()
 
     private func skipUnlessVisionAvailable() throws {
@@ -202,12 +218,16 @@ final class VisionRankerTests: XCTestCase {
 
         var distance: Float = 0
         XCTAssertNoThrow(try fpStripe.computeDistance(&distance, to: fpCircle))
-        XCTAssertGreaterThan(
-            distance, 0,
+        // Same bar the probe cleared, so "available" and "asserts successfully" are one
+        // contract. Asserting `> 0` here would accept the noise the probe now rejects.
+        XCTAssertGreaterThanOrEqual(
+            distance, Self.minimumDiscrimination,
             """
-            Feature prints for different images should differ.
+            Feature prints for structurally different images should separate by more \
+            than noise.
             async(via VisionRanker.featurePrint)=\(distance) \
             sync(same call as probe)=\(syncDistance) \
+            bar=\(Self.minimumDiscrimination) \
             elementCount stripe=\(fpStripe.elementCount) circle=\(fpCircle.elementCount) \
             probeAtLaunch[\(Self.probeReport)]
             """
