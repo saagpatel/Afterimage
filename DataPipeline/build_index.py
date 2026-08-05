@@ -41,6 +41,27 @@ CREATE INDEX IF NOT EXISTS idx_source ON historical_photos(source);
 CREATE INDEX IF NOT EXISTS idx_city ON historical_photos(city);
 """
 
+REQUIRED_RELEASE_CITIES = {"nyc", "sf", "chicago"}
+
+
+def validate_release_rows(rows: list[dict]) -> None:
+    """Reject incomplete inputs before replacing a previously usable database."""
+    if not rows:
+        raise RuntimeError("No staging rows were loaded")
+
+    sources = {row.get("source") for row in rows if row.get("source")}
+    if len(sources) < 2:
+        raise RuntimeError(f"Need at least 2 independent sources; found {sorted(sources)}")
+
+    cities = {infer_city(row["lat"], row["lon"]) for row in rows}
+    missing_cities = REQUIRED_RELEASE_CITIES - cities
+    if missing_cities:
+        raise RuntimeError(f"Missing required release cities: {sorted(missing_cities)}")
+
+    insecure = [row.get("id", "unknown") for row in rows if not row.get("thumbnail_url", "").startswith("https://")]
+    if insecure:
+        raise RuntimeError(f"Found {len(insecure)} rows without HTTPS thumbnails")
+
 
 def infer_city(lat: float, lon: float) -> str:
     """Infer city name from GPS coordinates using bounding boxes."""
@@ -253,10 +274,13 @@ def build() -> Path:
 
     # Deduplicate
     all_rows = deduplicate_cross_source(all_rows)
+    validate_release_rows(all_rows)
 
-    # Build SQLite
+    # Build beside the destination and replace atomically only after integrity checks.
     db_path = OUTPUT_DIR / "photos.db"
-    build_db(all_rows, db_path)
+    temporary_path = OUTPUT_DIR / "photos.db.tmp"
+    build_db(all_rows, temporary_path)
+    temporary_path.replace(db_path)
 
     return db_path
 
