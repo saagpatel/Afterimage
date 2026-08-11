@@ -13,6 +13,24 @@ Free iOS app (iPhone-only): match a photo to a geolocated historical photograph 
 - Data pipeline: Python 3.12 + aiohttp + sqlite3 (dev-time only, not shipped)
 
 ## Build / Test / Run
+Requires Xcode (verified against 26.6). There is no `Package.swift`: this is an Xcode project,
+so everything runs through `xcodebuild` against a simulator. The Makefile wraps that, and picks
+the first available iPhone simulator exactly the way `.github/workflows/ci.yml` does.
+
+```sh
+make build   # compile for the simulator
+make test    # full suite: 55 tests, ~3min. 5 skip by design (Vision feature print
+             # is unavailable on the simulator and needs a real device)
+make run     # opens the project in Xcode; an iOS app launches from there, not the CLI
+```
+
+The Python data pipeline under `DataPipeline/` is dev-time only, is not shipped in the app,
+and has its own fast suite:
+
+```sh
+python3 -m pytest DataPipeline/test_pipeline.py   # 5 tests, <1s
+```
+
 See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
 Current phase: **Phase 3: Confidence UI + Polish** (Phases 0–2 complete)
