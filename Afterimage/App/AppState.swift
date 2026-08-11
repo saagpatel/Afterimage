@@ -206,6 +206,11 @@ extension AppState {
         guard !appliedDebugLaunchArguments else { return }
         appliedDebugLaunchArguments = true
 
+        if ProcessInfo.processInfo.arguments.contains("--afterimage-demo-cities") {
+            currentScreen = .citySelector
+            return
+        }
+
         guard ProcessInfo.processInfo.arguments.contains("--afterimage-demo-comparison") else {
             return
         }
