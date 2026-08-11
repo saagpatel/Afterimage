@@ -43,6 +43,8 @@ Current phase: **Phase 3: Confidence UI + Polish** (Phases 0–2 complete)
 | Composite score | GPS/heading 70% + Vision 30% | Historical photos are stylistically dissimilar; Vision alone unreliable |
 | V1 cities | NYC, SF, Chicago, DC, New Orleans, Boston | Highest OldNYC + Wikimedia photo density with GPS metadata |
 | Monetization | Free, no paywall | Viral sharing is the growth mechanic — paywalls kill it |
+| Design language | "Archival plate" — all color/type tokens live in `Afterimage/DesignSystem/Theme.swift` | One subject-derived identity: silver-gelatin darks, museum-label bone, albumen sepia reserved for the historical layer's voice (datelines, era chips, handle ring) |
+| Color scheme | Dark-only (`.preferredColorScheme(.dark)` at root) | Camera-first app set in the plate archive's dark; system chrome must match |
 
 <!-- portfolio-context:start -->
 # Portfolio Context

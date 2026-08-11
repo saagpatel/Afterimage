@@ -107,6 +107,9 @@ struct RootView: View {
                 appState.locationService.refreshAuthorization()
             }
         }
+        // The whole app lives in the plate archive's dark; system chrome
+        // (nav bars, sheets, alerts) should match.
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -123,21 +126,21 @@ struct CaptureRecoveryView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(maxHeight: 280)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .plateFrame()
             Text("Your photo is still here")
-                .font(.title2.bold())
+                .font(Theme.serifTitle)
+                .foregroundStyle(Theme.bone)
             Text(message)
-                .foregroundStyle(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(Theme.boneMuted)
                 .multilineTextAlignment(.center)
-            Button("Choose Location Manually", action: onChooseLocation)
-                .buttonStyle(.borderedProminent)
-            Button("Browse Covered Cities", action: onBrowseCities)
-                .buttonStyle(.bordered)
-            Button("Start Over", action: onStartOver)
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+            SlabButton(title: "Choose Location Manually", action: onChooseLocation)
+            GhostButton(title: "Browse Covered Cities", action: onBrowseCities)
+            QuietButton(title: "Start Over", action: onStartOver)
         }
         .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.plate.ignoresSafeArea())
     }
 }
 
@@ -151,54 +154,58 @@ struct MatchingProgressView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(height: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .plateFrame()
 
             switch appState.matchingService.state {
             case .searching(let stage):
                 ProgressView()
                     .controlSize(.large)
-                Text(stage)
-                    .foregroundStyle(.secondary)
+                    .tint(Theme.boneMuted)
+                EyebrowText(stage, color: Theme.boneMuted)
+                    .multilineTextAlignment(.center)
 
             case .noResults:
                 noResultsView
 
             case .error(let message):
                 Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.orange)
+                    .font(.system(size: 44))
+                    .foregroundStyle(Theme.albumen)
                 Text(message)
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.boneMuted)
                     .multilineTextAlignment(.center)
-                Button("Back to Camera") {
+                GhostButton(title: "Back to Camera") {
                     appState.currentScreen = .camera
                 }
-                .buttonStyle(.bordered)
 
             default:
                 ProgressView()
+                    .tint(Theme.boneMuted)
             }
         }
         .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.plate.ignoresSafeArea())
     }
 
     private var noResultsView: some View {
         VStack(spacing: 12) {
             Image(systemName: "photo.badge.exclamationmark")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 44))
+                .foregroundStyle(Theme.boneMuted)
             Text("No historical photos found here")
-                .font(.headline)
+                .font(Theme.serifTitle)
+                .foregroundStyle(Theme.bone)
             if let cityDescription = appState.nearestCityDescription() {
                 Text("The nearest covered city is \(cityDescription).")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.boneMuted)
                     .multilineTextAlignment(.center)
             }
-            Button("Try a Different Location") {
+            GhostButton(title: "Try a Different Location") {
                 appState.currentScreen = .camera
             }
-            .buttonStyle(.bordered)
             .padding(.top, 4)
         }
     }

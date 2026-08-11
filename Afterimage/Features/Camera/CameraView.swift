@@ -37,7 +37,7 @@ struct CameraView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Theme.plate.ignoresSafeArea()
 
             switch viewModel.permission {
             case .denied:
@@ -116,50 +116,51 @@ struct CameraView: View {
     private var deniedView: some View {
         VStack(spacing: 16) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.white)
+                .font(.system(size: 44))
+                .foregroundStyle(Theme.boneMuted)
             Text("Camera Access Is Off")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(Theme.serifTitle)
+                .foregroundStyle(Theme.bone)
             Text("Enable Camera in Settings to take a new photo, or continue with Photos or city browse below.")
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(.subheadline)
+                .foregroundStyle(Theme.boneMuted)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 260)
-            Button("Open Settings") {
+            SlabButton(title: "Open Settings") {
                 guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
                 UIApplication.shared.open(url)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.white)
-            .foregroundStyle(.black)
+            .frame(maxWidth: 260)
         }
         .padding(32)
     }
 
     private var notDeterminedView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "camera")
-                .font(.system(size: 48))
-                .foregroundStyle(.white)
-            Text("Tap to Enable Camera")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
-            Text("Match today’s view with a historical photo. Camera access is optional—you can also choose a photo or browse a covered city.")
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.75))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
+        // A Button (not a bare tap gesture) so VoiceOver can activate it.
+        Button {
             Task {
                 await viewModel.requestPermission()
                 if case .granted = viewModel.permission {
                     await viewModel.startSession()
                 }
             }
+        } label: {
+            VStack(spacing: 20) {
+                Image(systemName: "camera")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Theme.bone)
+                Text("Tap to Enable Camera")
+                    .font(Theme.serifTitle)
+                    .foregroundStyle(Theme.bone)
+                Text("Match today’s view with a historical photo. Camera access is optional—you can also choose a photo or browse a covered city.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.boneMuted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 300)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Live Preview
@@ -184,10 +185,10 @@ struct CameraView: View {
                             .resizable()
                             .scaledToFill()
                             .frame(width: 80, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(RoundedRectangle(cornerRadius: 2))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(.white, lineWidth: 2)
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(Theme.bone, lineWidth: 2)
                             )
                             .padding(.top, 60)
                             .padding(.trailing, 16)
@@ -219,9 +220,9 @@ struct CameraView: View {
         } label: {
             Image(systemName: "map")
                 .font(.system(size: 22))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.bone)
                 .frame(width: 50, height: 50)
-                .background(.white.opacity(0.2), in: Circle())
+                .background(Theme.plate.opacity(0.5), in: Circle())
         }
         .accessibilityLabel("Browse covered cities")
     }
@@ -232,9 +233,9 @@ struct CameraView: View {
         } label: {
             Image(systemName: "photo.on.rectangle")
                 .font(.system(size: 22))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.bone)
                 .frame(width: 50, height: 50)
-                .background(.white.opacity(0.2), in: Circle())
+                .background(Theme.plate.opacity(0.5), in: Circle())
         }
         .accessibilityLabel("Choose a photo")
     }
@@ -251,11 +252,11 @@ struct CameraView: View {
             }
         } label: {
             Circle()
-                .fill(.white)
+                .fill(Theme.bone)
                 .frame(width: 72, height: 72)
                 .overlay(
                     Circle()
-                        .stroke(.white.opacity(0.6), lineWidth: 3)
+                        .stroke(Theme.bone.opacity(0.6), lineWidth: 3)
                         .frame(width: 82, height: 82)
                 )
         }
@@ -265,32 +266,30 @@ struct CameraView: View {
 
     private var alternativeActions: some View {
         VStack(spacing: 12) {
-            Button("Choose a Photo") {
+            SlabButton(title: "Choose a Photo") {
                 showingGalleryPicker = true
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.white)
-            .foregroundStyle(.black)
 
-            Button("Browse Covered Cities") {
+            GhostButton(title: "Browse Covered Cities") {
                 onBrowseCities?()
             }
-            .buttonStyle(.bordered)
-            .tint(.white)
         }
+        .frame(maxWidth: 300)
     }
 
     private func cameraStatusOverlay(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "camera.fill")
-                .font(.system(size: 36))
+                .font(.system(size: 32))
+                .foregroundStyle(Theme.boneMuted)
             Text(message)
+                .font(.subheadline)
+                .foregroundStyle(Theme.bone)
                 .multilineTextAlignment(.center)
             alternativeActions
         }
-        .foregroundStyle(.white)
         .padding(24)
-        .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 16))
+        .background(Theme.plateRaised.opacity(0.92), in: RoundedRectangle(cornerRadius: 4))
         .padding()
     }
 }

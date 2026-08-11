@@ -36,20 +36,32 @@ struct CitySelectorView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(CityInfo.allCities) { city in
-                        CityCard(city: city) {
-                            onCitySelected(city)
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        EyebrowText("The Collection", color: Theme.boneMuted)
+                        Text("Choose a City")
+                            .font(.system(.title, design: .serif).weight(.bold))
+                            .foregroundStyle(Theme.bone)
+                    }
+                    .padding(.top, 4)
+
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(CityInfo.allCities) { city in
+                            CityCard(city: city) {
+                                onCitySelected(city)
+                            }
                         }
                     }
                 }
                 .padding(16)
             }
-            .navigationTitle("Choose a City")
-            .navigationBarTitleDisplayMode(.large)
+            .background(Theme.plate)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onDismissed() }
+                        .tint(Theme.bone)
                 }
             }
         }
@@ -66,27 +78,27 @@ private struct CityCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(city.name)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.primary)
+                    .font(.system(.headline, design: .serif))
+                    .foregroundStyle(Theme.bone)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let count = city.photoCount {
-                    Text("\(count.formatted()) photos")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                    Text("\(count.formatted()) plates")
+                        .font(Theme.metaFont)
+                        .foregroundStyle(Theme.boneMuted)
                 } else {
                     Text("Historical photos")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .font(Theme.metaFont)
+                        .foregroundStyle(Theme.boneMuted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+            .background(Theme.plateRaised, in: RoundedRectangle(cornerRadius: 2))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(.secondary.opacity(0.15), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 2)
+                    .stroke(Theme.boneFaint.opacity(0.35), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
