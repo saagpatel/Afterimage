@@ -78,26 +78,32 @@ https://github.com/d/Afterimage
 ## Screenshots
 
 ### Required Sizes
-- **6.7" Display** — 1290 × 2796 px (iPhone 16 Pro Max / iPhone 15 Pro Max)
-- **6.1" Display** — 1179 × 2556 px (iPhone 16 / iPhone 15)
+- **6.9" Display** — 1320 × 2868 px (iPhone 17 Pro Max). App Store Connect scales this down for smaller-device slots if only one size is uploaded.
 
-### Screenshot Plan (4 screenshots per size)
+### Screenshot Plan (screens that exist in the shipped app)
 
 | # | Screen | Simulator State | Headline Overlay |
 |---|--------|-----------------|------------------|
-| 1 | SliderView | Vertical slider at 50% — left half shows present-day NYC street, right half reveals an 1890s photograph of the same block | "Drag to reveal the past." |
-| 2 | CameraView | Live camera viewfinder with semi-transparent historical photo overlay at ~30% opacity, compass heading indicator visible | "Stand where history happened." |
-| 3 | MatchResultView | Best-match card: historical photo thumbnail, date (e.g. "ca. 1905"), distance badge "12m away", similarity score | "The same corner. 120 years apart." |
-| 4 | GalleryView | Grid of historical photo thumbnails with city filter active (NYC), map pin count badge visible | "Thousands of moments. Six cities." |
+| 1 | ComparisonView | Mounted plate at 50% reveal — TODAY / era chips, divider handle, museum label with confidence line | "Drag to reveal the past." |
+| 2 | CitySelectorView | "The Collection" catalog: six city cards | "Six cities. Thousands of photographs." |
+| 3 | CameraView (enable state) | "Tap to Enable Camera" with Choose a Photo / Browse Covered Cities actions | "Stand where history happened." |
 
-### How to Take Screenshots
-1. Open Xcode → Simulator → select iPhone 16 Pro Max
-2. Build and run the Afterimage target
-3. Use pre-seeded NYC test data for the slider and gallery views
-4. **Xcode menu: Product → Simulator → Take Screenshot** (saves to Desktop)
-   OR: `xcrun simctl io booted screenshot ~/Desktop/screenshot.png`
-5. Repeat for iPhone 16 (6.1") by switching simulator
-6. Add marketing text overlays in Sketch, Figma, or Canva before uploading
+### How to Capture
+
+```
+bash scripts/capture-screenshots.sh
+```
+
+Builds, installs on the iPhone 17 Pro Max simulator, and captures all
+three scenes to `screenshots/iphone-69/` at native 1320×2868 using the
+DEBUG demo launch arguments (`--afterimage-demo-comparison`,
+`--afterimage-demo-cities`).
+
+**Before submission:** the demo comparison fixture uses synthetic proof
+images. The committed captures verify the design and pipeline; the
+shipped screenshot 1 must be recaptured with a real match (real photo at
+a covered location, on device), and marketing text overlays added in
+Figma/Canva. Screenshots 2–3 are shippable as captured.
 
 ---
 
@@ -130,7 +136,8 @@ No account or login is required at any point.
 - [ ] App icon 1024×1024 appears correctly in Xcode asset catalog (no warnings)
 - [ ] Archive succeeds: `Product → Archive` with no errors
 - [ ] Validate App passes with 0 errors (check privacy manifest, entitlements)
-- [ ] All 8 screenshots uploaded (4 per required size)
+- [ ] Screenshot 1 recaptured with a real match on device (synthetic fixture is not shippable)
+- [ ] All screenshots uploaded at 6.9" (1320 × 2868)
 - [ ] Description, keywords, subtitle filled in App Store Connect
 - [ ] Price set to Free in Pricing and Availability
 - [ ] Age rating questionnaire complete (4+)
