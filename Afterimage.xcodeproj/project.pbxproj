@@ -22,6 +22,7 @@
 		631EA3CBD877C48052E6DEA6 /* SpatialQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03AAD21FB09082E9FC32C46 /* SpatialQueryTests.swift */; };
 		63C11743CAC75D876D55A10A /* CameraCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415FC174085FAC524444AF72 /* CameraCoordinator.swift */; };
 		643B884020BF94A2424EB89F /* HeadingFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7A80DB07DE259862CA14A0 /* HeadingFilter.swift */; };
+		6601917ED38B79599644CD42 /* PlateExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4D4B6426DFC2C8143C38E5 /* PlateExportTests.swift */; };
 		670FF4698F76D774393BC30D /* photos.db in Resources */ = {isa = PBXBuildFile; fileRef = 62EB71FFDBB1E84BA7722823 /* photos.db */; };
 		6B4AF126FB67E394D3D74554 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED37E8CD1A11188A9272A7CF /* AppState.swift */; };
 		8079CCB039E39ACD25DAEA07 /* VisionRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBF16F27E37601EB5D1EC8D /* VisionRanker.swift */; };
@@ -36,6 +37,7 @@
 		B9300BB9A8C03C3E59C20184 /* GalleryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C6756F4E14EF238890B8B /* GalleryPickerView.swift */; };
 		C1E2549CEF552D15FE9D4AA0 /* MatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7F01CAE8D0F1D4ED73DD1B /* MatchingService.swift */; };
 		D5B020C146D3605A78951E1E /* SliderOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD46EEF0578B2B68C5377DF0 /* SliderOverlayView.swift */; };
+		D71ADCCE40748A0DFD5A25E2 /* SharePlate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BED586A7EFA6A4C4736F781 /* SharePlate.swift */; };
 		D89F2FD6E1D519BB13D0138C /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547B70E13CE2825A9E582C47 /* CameraView.swift */; };
 		DB5DF4FC1BB30946AC25F3EE /* HeadingFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CFB566E8361A5BD14F2E06 /* HeadingFilterTests.swift */; };
 		EBA143CA2DDF61195921115C /* DatabaseManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D173332087BA9E2975C5FC /* DatabaseManagerTests.swift */; };
@@ -54,7 +56,9 @@
 /* Begin PBXFileReference section */
 		1A7F01CAE8D0F1D4ED73DD1B /* MatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchingService.swift; sourceTree = "<group>"; };
 		1BBF16F27E37601EB5D1EC8D /* VisionRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionRanker.swift; sourceTree = "<group>"; };
+		1C4D4B6426DFC2C8143C38E5 /* PlateExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateExportTests.swift; sourceTree = "<group>"; };
 		29BCC8CF32A642532552D145 /* AfterimageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AfterimageApp.swift; sourceTree = "<group>"; };
+		2BED586A7EFA6A4C4736F781 /* SharePlate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharePlate.swift; sourceTree = "<group>"; };
 		2E7A80DB07DE259862CA14A0 /* HeadingFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadingFilter.swift; sourceTree = "<group>"; };
 		319886FCF5043D2B8CCEE58D /* HistoricalPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalPhoto.swift; sourceTree = "<group>"; };
 		40EFA7455B1769B905451ABC /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
@@ -136,6 +140,7 @@
 				43D173332087BA9E2975C5FC /* DatabaseManagerTests.swift */,
 				53CFB566E8361A5BD14F2E06 /* HeadingFilterTests.swift */,
 				4896C76D8DD82019084CADC9 /* MatchingServiceTests.swift */,
+				1C4D4B6426DFC2C8143C38E5 /* PlateExportTests.swift */,
 				C03AAD21FB09082E9FC32C46 /* SpatialQueryTests.swift */,
 				E04801D6640AF24A5DC73FBA /* TestHelpers.swift */,
 				E41D5D9BCFEAD9ED6D95DB08 /* VisionRankerTests.swift */,
@@ -243,6 +248,7 @@
 			isa = PBXGroup;
 			children = (
 				8E43A24524AD1D94F5B650CA /* ComparisonView.swift */,
+				2BED586A7EFA6A4C4736F781 /* SharePlate.swift */,
 				CD46EEF0578B2B68C5377DF0 /* SliderOverlayView.swift */,
 			);
 			path = Comparison;
@@ -382,6 +388,7 @@
 				5FAE2E0C94E697A0FC918496 /* LocationPickerView.swift in Sources */,
 				98F6A4B1139E3632B4C118A3 /* LocationService.swift in Sources */,
 				C1E2549CEF552D15FE9D4AA0 /* MatchingService.swift in Sources */,
+				D71ADCCE40748A0DFD5A25E2 /* SharePlate.swift in Sources */,
 				D5B020C146D3605A78951E1E /* SliderOverlayView.swift in Sources */,
 				28CB687EC781B06886321908 /* SpatialQuery.swift in Sources */,
 				890D46362B5954A203508500 /* Theme.swift in Sources */,
@@ -399,6 +406,7 @@
 				EBA143CA2DDF61195921115C /* DatabaseManagerTests.swift in Sources */,
 				DB5DF4FC1BB30946AC25F3EE /* HeadingFilterTests.swift in Sources */,
 				4385E468E3109A42FAAEF0FC /* MatchingServiceTests.swift in Sources */,
+				6601917ED38B79599644CD42 /* PlateExportTests.swift in Sources */,
 				631EA3CBD877C48052E6DEA6 /* SpatialQueryTests.swift in Sources */,
 				B4CA29F121FD5CDE4E924A8C /* TestHelpers.swift in Sources */,
 				2CC9BE07A758E7875EF51969 /* VisionRankerTests.swift in Sources */,

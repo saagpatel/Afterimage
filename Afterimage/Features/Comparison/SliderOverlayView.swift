@@ -4,13 +4,16 @@ struct SliderOverlayView: View {
     let userPhoto: UIImage
     let historicalPhoto: UIImage
     var eraLabel: String?
+    /// 0 = all historical, 1 = all today. Owned by the parent so the
+    /// share export can freeze the plate at this position.
+    @Binding var revealFraction: CGFloat
 
-    @State private var dividerX: CGFloat = 0
     @GestureState private var dragOffset: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
-            let currentX = min(max(dividerX + dragOffset, 0), geo.size.width)
+            let width = max(geo.size.width, 1)
+            let currentX = min(max(revealFraction * width + dragOffset, 0), width)
 
             ZStack {
                 // Bottom layer: historical photo (full width, always visible)
@@ -72,24 +75,20 @@ struct SliderOverlayView: View {
                         state = value.translation.width
                     }
                     .onEnded { value in
-                        dividerX = min(max(dividerX + value.translation.width, 0), geo.size.width)
+                        revealFraction = min(max(revealFraction + value.translation.width / width, 0), 1)
                     }
             )
-            .onAppear {
-                dividerX = geo.size.width / 2
-            }
             // One adjustable VoiceOver element: swipe up/down moves the
             // divider, since the drag gesture itself is not accessible.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Comparison slider")
-            .accessibilityValue(revealDescription(at: currentX, width: geo.size.width))
+            .accessibilityValue(revealDescription)
             .accessibilityAdjustableAction { direction in
-                let step = geo.size.width / 10
                 switch direction {
                 case .increment:
-                    dividerX = min(dividerX + step, geo.size.width)
+                    revealFraction = min(revealFraction + 0.1, 1)
                 case .decrement:
-                    dividerX = max(dividerX - step, 0)
+                    revealFraction = max(revealFraction - 0.1, 0)
                 @unknown default:
                     break
                 }
@@ -98,8 +97,8 @@ struct SliderOverlayView: View {
         }
     }
 
-    private func revealDescription(at x: CGFloat, width: CGFloat) -> String {
-        let percent = Int((x / max(width, 1)) * 100)
+    private var revealDescription: String {
+        let percent = Int(revealFraction * 100)
         return "\(percent) percent today, \(100 - percent) percent historical"
     }
 }
