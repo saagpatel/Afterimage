@@ -5,6 +5,10 @@ struct ComparisonView: View {
     let match: MatchCandidate
     let onDismiss: () -> Void
 
+    /// 0 = all historical, 1 = all today. Owned here so the share
+    /// export freezes the plate exactly as the viewer left it.
+    @State private var revealFraction: CGFloat = 0.5
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -14,7 +18,7 @@ struct ComparisonView: View {
                     VStack(spacing: 20) {
                         mountedPlate
 
-                        museumLabel
+                        MuseumLabelCard(match: match)
                     }
                     .padding(.horizontal, 20)
                     .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .center)
@@ -41,6 +45,28 @@ struct ComparisonView: View {
             .accessibilityIdentifier("Back")
 
             Spacer()
+
+            if let thumbnail = match.thumbnail {
+                ShareLink(
+                    item: PlateExport(
+                        userPhoto: userPhoto,
+                        historicalPhoto: thumbnail,
+                        match: match,
+                        revealFraction: revealFraction
+                    ),
+                    preview: SharePreview(match.photo.title, image: Image(uiImage: thumbnail))
+                ) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 13, weight: .semibold))
+                        EyebrowText("Share", color: Theme.bone)
+                    }
+                    .foregroundStyle(Theme.bone)
+                    .frame(minHeight: 44)
+                }
+                .accessibilityLabel("Share")
+                .accessibilityIdentifier("Share")
+            }
         }
         .padding(.horizontal, 20)
     }
@@ -53,7 +79,8 @@ struct ComparisonView: View {
                 SliderOverlayView(
                     userPhoto: userPhoto,
                     historicalPhoto: thumbnail,
-                    eraLabel: eraLabel
+                    eraLabel: match.eraLabel,
+                    revealFraction: $revealFraction
                 )
                 .aspectRatio(4.0 / 3.0, contentMode: .fit)
             } else {
@@ -66,72 +93,5 @@ struct ComparisonView: View {
             }
         }
         .plateFrame()
-    }
-
-    // MARK: - The museum label
-
-    private var museumLabel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let city = match.photo.city {
-                EyebrowText(city, color: Theme.inkOnBone)
-            }
-
-            Text(match.photo.title)
-                .font(Theme.serifTitle)
-                .foregroundStyle(Theme.plate)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if let dateText = match.photo.dateText {
-                Text(dateText)
-                    .font(Theme.metaFont.weight(.semibold))
-                    .textCase(.uppercase)
-                    .tracking(1.2)
-                    .foregroundStyle(Theme.albumenDeep)
-            }
-
-            Rectangle()
-                .fill(Theme.inkOnBone.opacity(0.25))
-                .frame(height: 1)
-                .padding(.vertical, 4)
-
-            Text(catalogLine)
-                .font(Theme.metaFont)
-                .textCase(.uppercase)
-                .tracking(1.0)
-                .foregroundStyle(Theme.inkOnBone)
-
-            HStack(alignment: .bottom) {
-                Text(match.photo.attribution)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Theme.inkOnBone)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Spacer(minLength: 12)
-
-                EyebrowText("Afterimage", color: Theme.inkOnBone)
-            }
-            .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Theme.bone, in: RoundedRectangle(cornerRadius: 2))
-    }
-
-    // MARK: - Catalog copy
-
-    /// Chip text for the historical layer: "C. 1935" from the catalog
-    /// date text, falling back to the bare year.
-    private var eraLabel: String? {
-        if let dateText = match.photo.dateText { return dateText }
-        if let year = match.photo.dateYear { return String(year) }
-        return nil
-    }
-
-    /// "STRONG MATCH · 80 FT AWAY" — the confidence line, in the
-    /// device's locale units.
-    private var catalogLine: String {
-        let distance = Measurement(value: match.distanceMeters, unit: UnitLength.meters)
-            .formatted(.measurement(width: .abbreviated, usage: .road))
-        return "\(match.confidenceLabel.rawValue) · \(distance) away"
     }
 }
