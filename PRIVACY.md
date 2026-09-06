@@ -26,11 +26,15 @@ Like ordinary web requests, those archive hosts may receive network information 
 
 The app bundles a read-only historical-photo metadata database. Downloaded historical images may be cached on the device to improve performance and are configured to expire after 30 days, subject to operating-system cache management. The app does not maintain a user account or cloud profile.
 
+When you choose **Save Before/After Pair**, Afterimage renders a PNG into its Application Support container and requests the iOS complete file-protection class, which makes the file unavailable while the device is locked. It does not add the pair to Photos, upload it, or make it public. Reinstalling or deleting the app may remove this app-local data; the current build does not include a saved-pair browser or deletion control.
+
+When you choose **Share a Copy**, Afterimage opens the iOS system share sheet. Nothing is shared until you choose a destination. A destination you select may copy or upload the image under that destination's own terms and privacy practices.
+
 You can remove the app and its local cache through iOS. You can also manage Camera, Photos, and Location permissions in iOS Settings.
 
 ## Data collection, tracking, and sharing
 
-Afterimage does not include an analytics SDK, advertising SDK, or tracking technology. It does not sell personal information. It does not collect information into an Afterimage-controlled database.
+Afterimage does not include an analytics SDK, advertising SDK, or tracking technology. It does not sell personal information. It does not collect information into an Afterimage-controlled database. User-initiated export through the system share sheet is distinct from Afterimage's matching behavior.
 
 Requests made directly to historical-image hosts are necessary to provide the image-display feature and are described above. The app also uses Apple system frameworks and the network services provided by your device and operating system.
 

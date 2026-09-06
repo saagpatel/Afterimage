@@ -68,12 +68,13 @@ struct MuseumLabelCard: View {
         .background(Theme.bone, in: RoundedRectangle(cornerRadius: 2))
     }
 
-    /// "STRONG MATCH · 80 FT AWAY" — the confidence line, in the
-    /// device's locale units.
+    /// A presentation-only summary. The underlying decision remains in
+    /// `MatchConfidence` and never depends on this string.
     private var catalogLine: String {
         let distance = Measurement(value: match.distanceMeters, unit: UnitLength.meters)
             .formatted(.measurement(width: .abbreviated, usage: .road))
-        return "\(match.confidenceLabel.rawValue) · \(distance) away"
+        let presenter = MatchExplanationPresenter(candidate: match)
+        return "\(presenter.shortLabel) · \(distance) away"
     }
 }
 
@@ -87,6 +88,8 @@ struct SharePlateView: View {
     let historicalPhoto: UIImage
     let match: MatchCandidate
     let revealFraction: CGFloat
+    let historicalOffset: CGSize
+    let historicalScale: CGFloat
 
     /// Logical canvas width; rendered at 2x for a 1080px-wide image.
     static let canvasWidth: CGFloat = 540
@@ -113,6 +116,8 @@ struct SharePlateView: View {
                     .resizable()
                     .aspectRatio(4.0 / 3.0, contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scaleEffect(historicalScale)
+                    .offset(historicalOffset)
 
                 Image(uiImage: userPhoto)
                     .resizable()
@@ -155,6 +160,7 @@ struct SharePlateView: View {
                 }
                 .position(x: currentX, y: geo.size.height / 2)
             }
+            .clipped()
         }
     }
 }
@@ -170,6 +176,24 @@ struct PlateExport: Transferable, Sendable {
     let historicalPhoto: UIImage
     let match: MatchCandidate
     let revealFraction: CGFloat
+    let historicalOffset: CGSize
+    let historicalScale: CGFloat
+
+    init(
+        userPhoto: UIImage,
+        historicalPhoto: UIImage,
+        match: MatchCandidate,
+        revealFraction: CGFloat,
+        historicalOffset: CGSize = .zero,
+        historicalScale: CGFloat = 1
+    ) {
+        self.userPhoto = userPhoto
+        self.historicalPhoto = historicalPhoto
+        self.match = match
+        self.revealFraction = revealFraction
+        self.historicalOffset = historicalOffset
+        self.historicalScale = historicalScale
+    }
 
     enum ExportError: Error {
         case renderFailed
@@ -192,7 +216,9 @@ struct PlateExport: Transferable, Sendable {
                 userPhoto: userPhoto,
                 historicalPhoto: historicalPhoto,
                 match: match,
-                revealFraction: revealFraction
+                revealFraction: revealFraction,
+                historicalOffset: historicalOffset,
+                historicalScale: historicalScale
             )
             .environment(\.colorScheme, .dark)
         )

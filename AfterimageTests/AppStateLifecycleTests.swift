@@ -72,4 +72,12 @@ final class AppStateLifecycleTests: XCTestCase {
         XCTAssertNil(heading)
         XCTAssertEqual(service.stopCallCount, 1)
     }
+
+    func testNearestIndexedCityNeverNamesAnUnbundledCity() {
+        let names = Set(AppState.cityCenters.map(\.name))
+        XCTAssertEqual(names, Set(["New York City", "San Francisco", "Chicago"]))
+        XCTAssertFalse(names.contains("Washington, D.C."))
+        XCTAssertFalse(names.contains("New Orleans"))
+        XCTAssertFalse(names.contains("Boston"))
+    }
 }

@@ -32,6 +32,8 @@ struct CitySelectorView: View {
     let onDismissed: () -> Void
 
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    @State private var indexedCounts: [String: Int] = [:]
+    @State private var didLoadIndex = false
 
     var body: some View {
         NavigationStack {
@@ -47,13 +49,21 @@ struct CitySelectorView: View {
 
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(CityInfo.allCities) { city in
-                            CityCard(city: city) {
+                            CityCard(
+                                city: city,
+                                indexedCount: indexedCounts[city.id],
+                                didLoadIndex: didLoadIndex
+                            ) {
                                 onCitySelected(city)
                             }
                         }
                     }
                 }
                 .padding(16)
+            }
+            .task {
+                indexedCounts = (try? await DatabaseManager.shared.cityCounts) ?? [:]
+                didLoadIndex = true
             }
             .background(Theme.plate)
             .navigationTitle("")
@@ -72,7 +82,11 @@ struct CitySelectorView: View {
 
 private struct CityCard: View {
     let city: CityInfo
+    let indexedCount: Int?
+    let didLoadIndex: Bool
     let onTap: () -> Void
+
+    private var isAvailable: Bool { (indexedCount ?? 0) > 0 }
 
     var body: some View {
         Button(action: onTap) {
@@ -83,14 +97,17 @@ private struct CityCard: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if let count = city.photoCount {
+                if let count = indexedCount, count > 0 {
                     Text("\(count.formatted()) plates")
                         .font(Theme.metaFont)
                         .foregroundStyle(Theme.boneMuted)
-                } else {
-                    Text("Historical photos")
+                } else if didLoadIndex {
+                    Text("Not indexed in this build")
                         .font(Theme.metaFont)
                         .foregroundStyle(Theme.boneMuted)
+                } else {
+                    ProgressView()
+                        .tint(Theme.boneMuted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -102,5 +119,11 @@ private struct CityCard: View {
             )
         }
         .buttonStyle(.plain)
+        .disabled(didLoadIndex && !isAvailable)
+        .accessibilityHint(
+            didLoadIndex && !isAvailable
+                ? "This city has no bundled archive records in the current build"
+                : "Opens archive candidates near the city center"
+        )
     }
 }

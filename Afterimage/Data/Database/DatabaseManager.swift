@@ -32,6 +32,29 @@ final class DatabaseManager: Sendable {
         }
     }
 
+    var cityCounts: [String: Int] {
+        get async throws {
+            try await dbPool.read { db in
+                let rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT city, COUNT(*) AS photo_count
+                        FROM historical_photos
+                        WHERE city IS NOT NULL
+                        GROUP BY city
+                        """
+                )
+                return Dictionary(uniqueKeysWithValues: rows.compactMap { row in
+                    guard let city: String = row["city"],
+                          let count: Int = row["photo_count"] else {
+                        return nil
+                    }
+                    return (city, count)
+                })
+            }
+        }
+    }
+
     /// Schema SQL for creating the table in test databases
     static let schema = """
         CREATE TABLE IF NOT EXISTS historical_photos (

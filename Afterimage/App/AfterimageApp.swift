@@ -88,11 +88,19 @@ struct RootView: View {
                 MatchingProgressView(photo: photo)
                     .environment(appState)
 
-            case .comparison(let userPhoto, let match):
-                ComparisonView(
+            case .comparison(let userPhoto, let candidates):
+                FieldWalkView(
                     userPhoto: userPhoto,
-                    match: match,
+                    candidates: candidates,
                     onDismiss: { appState.currentScreen = .camera }
+                )
+
+            case .noMatch(let userPhoto, _):
+                NoMatchInstrumentView(
+                    userPhoto: userPhoto,
+                    nearestCityDescription: appState.nearestCityDescription(),
+                    onTryAnotherLocation: { appState.currentScreen = .camera },
+                    onBrowseCities: { appState.currentScreen = .citySelector }
                 )
             }
         }
@@ -127,7 +135,7 @@ struct CaptureRecoveryView: View {
                 .scaledToFit()
                 .frame(maxHeight: 280)
                 .plateFrame()
-            Text("Your photo is still here")
+            Text("Location unavailable — your photo is preserved")
                 .font(Theme.serifTitle)
                 .foregroundStyle(Theme.bone)
             Text(message)
@@ -141,6 +149,49 @@ struct CaptureRecoveryView: View {
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.plate.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("unavailable-location-state")
+    }
+}
+
+struct NoMatchInstrumentView: View {
+    let userPhoto: UIImage
+    let nearestCityDescription: String?
+    let onTryAnotherLocation: () -> Void
+    let onBrowseCities: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(uiImage: userPhoto)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 240)
+                .plateFrame()
+                .accessibilityLabel("Your current photo")
+            Image(systemName: "photo.badge.exclamationmark")
+                .font(.system(size: 44))
+                .foregroundStyle(Theme.boneMuted)
+            Text("No historical match found")
+                .font(Theme.serifTitle)
+                .foregroundStyle(Theme.bone)
+            Text("Afterimage found no archive candidate within the supported search radius. It will not substitute an unrelated image.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.boneMuted)
+                .multilineTextAlignment(.center)
+            if let nearestCityDescription {
+                Text("Nearest indexed city: \(nearestCityDescription).")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.boneMuted)
+                    .multilineTextAlignment(.center)
+            }
+            SlabButton(title: "Try a Different Location", action: onTryAnotherLocation)
+            GhostButton(title: "Browse Indexed Cities", action: onBrowseCities)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.plate.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("no-match-state")
     }
 }
 

@@ -145,18 +145,12 @@ final class VisionRankerTests: XCTestCase {
         XCTAssertNotNil(gray?.cgImage, "Grayscale result must have a CGImage for Vision processing")
     }
 
-    // MARK: - Composite score weights
+    // MARK: - Evidence preservation
 
-    func testWeightsSumToOne() {
-        XCTAssertEqual(VisionRanker.geoWeight + VisionRanker.visionWeight, 1.0, accuracy: 0.001)
-    }
-
-    func testDefaultGeoWeight() {
-        XCTAssertEqual(VisionRanker.geoWeight, 0.70, accuracy: 0.001)
-    }
-
-    func testDefaultVisionWeight() {
-        XCTAssertEqual(VisionRanker.visionWeight, 0.30, accuracy: 0.001)
+    func testSingleCandidateBeginsWithoutVisualEvidence() {
+        let candidate = MatchCandidate(photo: makePhoto(id: "unranked"), distanceMeters: 10)
+        XCTAssertNil(candidate.evidence.visual.featurePrintDistance)
+        XCTAssertFalse(candidate.confidence.mayPresentOverlay)
     }
 
     // MARK: - Feature print generation (requires Neural Engine)
@@ -243,26 +237,22 @@ final class VisionRankerTests: XCTestCase {
             UIColor.gray.setFill()
             ctx.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
         }
-        let ranked = try await VisionRanker.rank(candidates: [], userPhoto: userPhoto)
+        let ranked = await VisionRanker.rank(candidates: [], userPhoto: userPhoto)
         XCTAssertTrue(ranked.isEmpty)
     }
 
-    func testRankThrowsForInvalidUserPhoto() async {
+    func testInvalidUserPhotoPreservesMissingVisualEvidence() async {
         let emptyImage = UIImage()
         let photo = makePhoto(id: "r1")
         let candidate = MatchCandidate(photo: photo, distanceMeters: 10)
 
-        do {
-            _ = try await VisionRanker.rank(candidates: [candidate], userPhoto: emptyImage)
-            XCTFail("Expected VisionRankerError.grayscaleFailed for empty user photo")
-        } catch VisionRankerError.grayscaleFailed {
-            // Expected
-        } catch {
-            XCTFail("Unexpected error type: \(error)")
-        }
+        let ranked = await VisionRanker.rank(candidates: [candidate], userPhoto: emptyImage)
+        XCTAssertEqual(ranked.count, 1)
+        XCTAssertNil(ranked.first?.visionDistance)
+        XCTAssertEqual(ranked.first?.confidence.disposition, .insufficientEvidence)
     }
 
-    func testRankResultsSortedAscendingByCompositeScore() async throws {
+    func testRankResultsSortedByConfidenceThenDistance() async throws {
         try skipUnlessVisionAvailable()
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
         let userPhoto = renderer.image { ctx in
@@ -280,21 +270,17 @@ final class VisionRankerTests: XCTestCase {
             UIColor(white: 0.3, alpha: 1).setFill()
             ctx.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
         }
-        c1.thumbnail = thumb
-        c2.thumbnail = thumb
+        c1.recordThumbnail(thumb)
+        c2.recordThumbnail(thumb)
 
-        let ranked = try await VisionRanker.rank(candidates: [c2, c1], userPhoto: userPhoto)
+        let ranked = await VisionRanker.rank(candidates: [c2, c1], userPhoto: userPhoto)
 
         XCTAssertEqual(ranked.count, 2)
         guard ranked.count == 2 else { return }
-        XCTAssertLessThanOrEqual(
-            ranked[0].compositeScore,
-            ranked[1].compositeScore,
-            "Results must be sorted ascending by compositeScore"
-        )
+        XCTAssertLessThanOrEqual(ranked[0].distanceMeters, ranked[1].distanceMeters)
     }
 
-    func testRankSingleCandidateGetsStrongMatchLabel() async throws {
+    func testSingleCandidateCannotNormalizeItselfIntoConfidence() async throws {
         try skipUnlessVisionAvailable()
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
         let userPhoto = renderer.image { ctx in
@@ -308,11 +294,11 @@ final class VisionRankerTests: XCTestCase {
 
         let photo = makePhoto(id: "solo")
         var candidate = MatchCandidate(photo: photo, distanceMeters: 15)
-        candidate.thumbnail = thumb
+        candidate.recordThumbnail(thumb)
 
-        let ranked = try await VisionRanker.rank(candidates: [candidate], userPhoto: userPhoto)
+        let ranked = await VisionRanker.rank(candidates: [candidate], userPhoto: userPhoto)
         XCTAssertEqual(ranked.count, 1)
-        XCTAssertEqual(ranked.first?.confidenceLabel, .strongMatch,
-            "Single candidate should receive .strongMatch (compositeScore normalises to 0)")
+        XCTAssertNotEqual(ranked.first?.confidence.disposition, .confident)
+        XCTAssertFalse(ranked.first?.confidence.mayPresentOverlay ?? true)
     }
 }

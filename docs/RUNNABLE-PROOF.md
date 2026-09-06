@@ -1,278 +1,152 @@
-# Afterimage — Runnable Proof Path
+# Runnable Proof Path
 
-A one-pass walkthrough from a clean checkout to a working in-simulator demo of
-the historical photo overlay. Each step has a command, an expected result, and
-a quick "if it fails" pointer.
+This is the current verification contract for the uncertainty-aware field-walk slice. Run from the repository root unless a step says otherwise. Record exact toolchain, destination, commit/tree, and failures; do not convert a skipped runtime step into a pass.
 
-> **Audience:** anyone resuming after a long pause, demoing the app to someone
-> else, or capturing a baseline before changes.
-
-## Latest verification
-
-Verified on 2026-05-17:
-
-- `xcodegen generate` recreated `Afterimage.xcodeproj` without leaving tracked
-  file changes.
-- XcodeBuildMCP simulator tests passed on the `Afterimage` scheme: 48 passed,
-  0 failed, 5 skipped.
-- XcodeBuildMCP build/run succeeded on the configured iPhone simulator, launched
-  bundle `com.afterimage.app`, and exposed the main UI controls for gallery,
-  capture, and map.
-- A debug-only simulator proof path now launches directly into a synthetic
-  comparison result with `--afterimage-demo-comparison`; XcodeBuildMCP captured
-  the comparison screen, confirmed the `comparison-slider` accessibility target,
-  and a simulator swipe visibly moved the reveal divider.
-
-Still requiring manual or device proof:
-
-- Physical camera capture, live GPS/heading behavior, and share-sheet export.
-- A real seeded photo/location walkthrough through Photos or camera roll. The
-  debug proof path covers the non-empty comparison and slider reveal surface,
-  but it does not claim camera, Photos, or EXIF behavior.
-
----
-
-## 0. Prerequisites
-
-- macOS (iOS toolchain required)
-- Xcode 26.3+ (matches `project.yml`)
-- Python 3.11+ (for `DataPipeline/`)
-- XcodeGen (`brew install xcodegen`) — `project.yml` is the source of truth
-- A real Apple developer account if you want to run on a device. Simulator
-  works without one.
+## 1. Toolchain and project generation
 
 ```bash
+xcode-select -p
 xcodebuild -version
+xcrun simctl list devices available
 xcodegen --version
-python3 --version
+xcodegen generate
+git diff --check
 ```
 
----
+Expected for full proof: a full Xcode installation, an iOS 17+ Simulator, successful project generation, and no whitespace errors. Command Line Tools alone are insufficient for the Xcode build/runtime steps.
 
-## 1. Regenerate the Xcode project from `project.yml`
+## 2. Toolchain-light deterministic checks
+
+These do not require protected media, location, archive downloads, or a running app.
 
 ```bash
-cd /Users/d/Projects/Afterimage
-xcodegen generate
+swiftc Afterimage/Features/Matching/MatchConfidence.swift \
+  scripts/verify-match-confidence.swift \
+  -o /tmp/verify-match-confidence
+/tmp/verify-match-confidence AfterimageTests/Fixtures/match-confidence-v1.json
+
+swiftc -O Afterimage/Features/Matching/MatchConfidence.swift \
+  scripts/benchmark-match-confidence.swift \
+  -o /tmp/benchmark-match-confidence
+/usr/bin/time -lp /tmp/benchmark-match-confidence \
+  AfterimageTests/Fixtures/match-confidence-v1.json
+
+cd DataPipeline
+python3 -m unittest -v test_pipeline
+cd ..
+
+plutil -lint Afterimage/Info.plist Afterimage/Resources/PrivacyInfo.xcprivacy
+swiftc -frontend -parse $(rg --files Afterimage AfterimageTests -g '*.swift')
+bash -n scripts/capture-screenshots.sh
 ```
 
-**Expected:** `Afterimage.xcodeproj` is rebuilt against `project.yml`. No
-warnings.
+Current fixture acceptance ceilings:
 
-**If it fails:** `xcodegen --quiet generate` to see clean errors; usually a
-missing folder or new file not declared in `project.yml`.
+- fixture count at least 12;
+- `fixtureBrierScore` at most 0.18;
+- `fixtureExpectedCalibrationError` at most 0.18;
+- refusal recall exactly 1.0 for known negatives;
+- expected disposition accuracy exactly 1.0.
 
----
+The same verifier also executes non-JSON adversarial cases for NaN, infinity, negative distance/precision, out-of-range heading, negative Vision distance, imprecise compass headings, and low-confidence archive headings. Invalid or unreliable observations must remain missing or be scored at their conservative uncertainty bound; they must not unlock the overlay.
 
-## 2. Build for simulator
+The 2026-09-04 13-case report under Xcode 26.6 / Swift 6.3.3 was fixture Brier 0.0510, fixture ECE 0.1023, refusal recall 1.0, and disposition accuracy 1.0. The optimized policy benchmark completed 250,000 evaluations in 69.37 ms (about 3.60 million evaluations/second) with 6,651,904 bytes maximum resident set size. Those values describe only the frozen fixture corpus and Foundation policy path.
+
+The provenance compatibility layer has a separate Foundation-only verifier:
+
+```bash
+swiftc \
+  Afterimage/Data/Models/HistoricalAssetProvenance.swift \
+  scripts/verify-provenance-contract.swift \
+  -o /tmp/verify-provenance-contract
+/tmp/verify-provenance-contract
+```
+
+It proves only that current index IDs and stored heading confidence are preserved while unavailable lineage stays unavailable. It does not prove that the current archive corpus contains source-record links, ingestion versions, coordinate origins, or other field-confidence metadata.
+
+## 3. Build and XCTest
+
+Choose an actually installed device rather than copying the example name blindly.
 
 ```bash
 xcodebuild \
   -project Afterimage.xcodeproj \
   -scheme Afterimage \
   -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=latest' \
   build
-```
 
-**Expected:** `BUILD SUCCEEDED`. Warnings about deprecated APIs are OK if they
-are not new (compare against the last green commit `c29f1ef`).
-
-**If it fails:**
-- Verify `DEVELOPMENT_TEAM` is set in `project.yml` (commit `95f2915`).
-- `xcodebuild -showsdks` to confirm an iOS 17+ SDK is available.
-- Clean the build with `xcodebuild clean` then retry.
-
----
-
-## 3. Run the unit-test suite
-
-```bash
 xcodebuild \
   -project Afterimage.xcodeproj \
   -scheme Afterimage \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=latest' \
   test
 ```
 
-**Expected:** `TEST SUCCEEDED`. Coverage includes:
-- `DatabaseManagerTests` — SQLite open + schema
-- `HeadingFilterTests` — heading window filter (45° default, skip when
-  `headingAccuracy > 45°`)
-- `MatchingServiceTests` — composite score (70% geo + 30% vision)
-- `SpatialQueryTests` — bounding-box + Haversine ≤100m
+Required XCTest surfaces include confidence/refusal fixtures, spatial query, heading annotation/filter behavior, offline-injected matching, Vision ranking, database behavior, typed provenance unavailable states, location lifecycle recovery, local pair storage, and plate export.
 
-**If it fails:** look at the test name; the test file is at
-`AfterimageTests/<TestName>.swift`. Most failures are fixture-data or
-GRDB-version-related.
+## 4. Deterministic UI states
 
----
-
-## 4. Verify the data pipeline (optional but recommended)
-
-The data pipeline builds the `photos.db` SQLite index that gets bundled into
-the app. It is **dev-time only** — not run on device.
-
-```bash
-cd /Users/d/Projects/Afterimage/DataPipeline
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# Ingest one source as a smoke test (Wikimedia is the most stable)
-python3 ingest_wikimedia.py --city nyc
-
-# Build the index from all ingested rows
-python3 build_index.py
-
-# Coverage audit (gate that Phase 0 widens past 2 cities)
-python3 audit_coverage.py
-```
-
-**Expected:**
-- `photos.db` produced under `DataPipeline/output/`
-- Coverage audit reports ≥25% of 100m grid cells covered for the cities you
-  ingested
-- Commit `bfc2390` widened the pipeline to NYC, SF, Chicago — re-running with
-  `--city all` should reproduce the 3-city dataset
-
-**If it fails:**
-- Wikimedia/LoC APIs throttle — wait, retry. The ingest scripts log rate-limit
-  hits.
-- Memory ballooning during index build → reduce batch size in
-  `build_index.py`.
-
----
-
-## 5. Replace the bundled `photos.db` (if you regenerated one in step 4)
-
-```bash
-cp DataPipeline/output/photos.db Afterimage/Resources/photos.db
-```
-
-Rebuild (step 2) so Xcode picks up the new bundle resource.
-
-**Skip this step if you're demoing the as-shipped DB.** The bundle's existing
-`photos.db` is the one tied to the most recent commit.
-
----
-
-## 6. Launch the app in simulator and walk the demo
-
-### Deterministic simulator proof
-
-For a repeatable simulator proof of the comparison screen and slider reveal,
-launch the Debug build with:
+Build and install the Debug app, then launch each state separately:
 
 ```bash
 xcrun simctl launch booted com.afterimage.app --afterimage-demo-comparison
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-uncertain
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-conflict
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-insufficient
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-unavailable-location
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-no-match
+xcrun simctl launch booted com.afterimage.app --afterimage-demo-cities
 ```
 
-**Expected:** the app opens directly to a comparison screen titled
-`Debug Demo: Times Square, looking north`, with date `c. 1935`, attribution, and
-the `comparison-slider` accessibility target. Drag the slider horizontally; the
-divider should move and reveal more of the present-day or historical image.
-
-**What this proves:** the comparison surface renders and the slider interaction
-works in simulator.
-
-**What this does not prove:** physical camera capture, Photos picker, GPS/EXIF
-extraction, live heading behavior, or share-sheet export.
-
-### End-to-end city/photo path
+Or capture all scripted states with:
 
 ```bash
-open -a Simulator
-# In the simulator: Features > Location > Custom Location...
-#   NYC: 40.7128, -74.0060
-#   SF:  37.7749, -122.4194
-#   Chicago: 41.8781, -87.6298
+bash scripts/capture-screenshots.sh
 ```
 
-Then in Xcode: hit Run (Cmd-R) on the `Afterimage` scheme with the simulator
-selected.
+The fixture images are generated inside the Debug build. They prove no real historical match and are not publication assets.
 
-### Demo flow
+## 5. Visual and accessibility readback
 
-1. **Permission prompts** — Location, Camera. Accept both. Without Location,
-   no spatial query; without Camera, only camera-roll mode works.
-2. **Capture or pick a photo**. For a quick simulator demo, use a known
-   camera-roll photo set to the NYC location. (Simulator → Features > Photos
-   > Add to Library, then set location via Features > Location.)
-3. **Wait for match**. The matching pipeline runs:
-   - Spatial query (≤100m, ~20 candidates)
-   - Heading filter (±45° if `headingAccuracy` is good)
-   - Thumbnail fetch (Kingfisher, concurrent)
-   - Vision feature-print ranking (composite score: 70% geo + 30% vision)
-4. **Slider reveal**. Drag the vertical slider on the comparison view. The
-   historical image fades in beneath the present-day photo.
-5. **Share composite**. Tap Share → `UIActivityViewController` opens with the
-   composite image rendered.
+For every required state, preserve a fresh screenshot and inspect the live accessibility hierarchy. Confirm:
 
-### What "works" looks like
+- candidate title, city/date when available, distance, and disposition are distinguishable;
+- only `confident` exposes `comparison-slider`;
+- uncertain, conflicting, and insufficient states expose `overlay-refusal` and the primary reason;
+- `unavailable-location-state` and `no-match-state` are separate;
+- `match-confidence-summary`, `why-this-match`, `alignment-controls`, `match-provenance`, explicit lineage gaps, and `local-save-result` are announced coherently;
+- the comparison slider responds to VoiceOver adjustable actions;
+- alignment values and provenance reflow at accessibility Dynamic Type sizes;
+- contrast, truncation, scrolling, and 44-point controls are acceptable on the smallest supported screen.
 
-- Match returns at least 1 candidate for the NYC test location
-- Slider drag is smooth (60 FPS)
-- Composite share renders both images
-- No crash, no permission loops
+Source identifiers are not runtime accessibility proof.
 
----
+## 6. Performance, memory, and energy
 
-## 7. Verify the security/privacy posture
+Use a Release or profiling build and project-owned fixtures first. Measure at least:
 
-```bash
-# Privacy manifest present (commit 651a5f4)
-ls Afterimage/PrivacyInfo.xcprivacy
+- capture/selection to first candidate list;
+- spatial query, thumbnail load, Vision ranking, and total match latency (existing logs identify stages);
+- overlay drag frame pacing before and after alignment changes;
+- export render time and local write time;
+- peak/resident memory while cycling all fixture states;
+- energy over a representative orient → inspect → align → save session.
 
-# DEVELOPMENT_TEAM set for App Store signing (commit 95f2915)
-grep DEVELOPMENT_TEAM project.yml
+Use Instruments Time Profiler, Allocations, and Energy Log (or equivalent current Xcode tools). Preserve the destination, OS, build configuration, sample length, and raw trace location. Do not use the command-line confidence verifier as a substitute for camera/overlay/app profiling.
 
-# No accounts / backend dependencies
-grep -r "https://api\." Afterimage --include='*.swift' | head -5
-# Expected: empty or only Wikimedia thumbnail fetches
-```
+## 7. Bounded device field proof
 
----
+This step requires a physical iPhone and explicit use of the operator's own test scene/photo. Do not access arbitrary Photos or location history.
 
-## 8. App Store metadata sanity (commit `c29f1ef`)
+Verify permission prompts, location accuracy, heading availability and dropout, candidate/refusal comprehension, archive-network failure, alignment, local save, and user-initiated share. Label each observation by its actual evidence boundary. A few local scenes cannot establish general matching efficacy.
 
-```bash
-cat APPSTORE-METADATA.md | head -20
-```
+## 8. Current verified state
 
-Verify subtitle, description, keywords, and privacy questions match the
-intended pitch. Screenshots are committed separately when ready.
+On 2026-09-06, `/Applications/Xcode.app/Contents/Developer` is active with Xcode 26.6 / Swift 6.3.3, the iOS 26.5 Simulator runtime is installed, and an iPhone 17 Pro Simulator is available. XcodeGen regeneration, build, link, and the complete XCTest suite pass from a task-owned DerivedData directory. XCTest executed 75 tests with zero failures; five Vision feature-print tests skipped because this Simulator could not create an Espresso context.
 
----
+The Debug app was installed and launched for confident, uncertain, conflicting, insufficient-evidence, no-match, unavailable-location, city-selector, and camera-entry states. Fresh 1206 x 2622 screenshots were visually inspected. The confidence states were distinct, only the confident fixture exposed the overlay, refusal states showed their primary reason, and no-match and unavailable-location rendered as separate recovery states. Increased Contrast rendered without a visible regression. A largest-accessibility-size run exposed a compressed header; the header was changed to stack responsively and a fresh screenshot confirmed readable, scrollable output.
 
-## Build-proof source of truth
+This does not establish VoiceOver hierarchy/order or adjustable-action behavior because no accessibility-inspection tool was available in this run. It also does not establish Vision feature-print execution, app-level profiling, physical camera/location behavior, or real-world field efficacy. Exact next proof is an accessibility readback plus profiling on a destination that supports the required tools, followed separately by an explicitly authorized physical-device field session.
 
-This checklist mirrors the build proof captured at commits:
-
-- `bfc2390` — pipeline expanded to NYC, SF, Chicago
-- `78d9f1e` — vision: double continuation resume fix
-- `651a5f4` — privacy manifest
-- `95f2915` — DEVELOPMENT_TEAM for App Store signing
-- `c29f1ef` — App Store Connect metadata
-
-If a step regresses, bisect against these commits.
-
----
-
-## What "Phase 1" success means (per CLAUDE.md)
-
-Phase 1 is "Core App — Camera → Match → Slider". Success criteria for the
-runnable proof:
-
-| Capability | Verification step |
-|---|---|
-| Camera capture works | Step 6, action 2 |
-| Camera-roll picker works | Step 6, action 2 alternative |
-| MatchingService returns ≥1 candidate at known cities | Step 6, action 3 |
-| Slider overlay reveals historical image | Step 6, action 4 |
-| Share composite renders | Step 6, action 5 |
-| Privacy manifest present | Step 7 |
-| Tests pass | Step 3 |
-
-Phase 1 widening (more cities, more sources, ML re-ranking refinements) is
-out-of-scope here; this doc only proves the current state runs.
+See `LIMITATIONS.md` for the exact claim ceiling and unblock condition.
