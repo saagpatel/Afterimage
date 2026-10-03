@@ -20,11 +20,18 @@ The internal `fixtureEstimatedProbability` is calibrated only against the bundle
 
 See `docs/FIELD-INSTRUMENT.md` for the model and refusal policy, `docs/RUNNABLE-PROOF.md` for verification, and `docs/LIMITATIONS.md` for the current claim ceiling.
 
+## Build prerequisites
+- Full Xcode 26.6 (what CI's unpinned `macos-latest` image provided as of 2026-10; 16.3 is the untested minimum that can resolve the locked GRDB 7.10 package), iOS 17.0+ deployment target
+- Network access on first build: SwiftPM fetches GRDB and Kingfisher from GitHub
+- Physical iPhone (camera and GPS required for end-to-end matching)
+
 ## Verification
 
-Run from the repository root with full Xcode matching `project.yml` (currently
-26.3) selected (`xcode-select -p`)
-and an installed, available iPhone simulator runtime. Command Line Tools alone
+Run from the repository root with full Xcode 26.6 (what CI's unpinned
+`macos-latest` image provided as of 2026-10) selected (`xcode-select -p`). `xcodeVersion: "26.3"` in `project.yml`
+is only XcodeGen's project-format hint, not the toolchain requirement. The first
+build resolves GRDB and Kingfisher through SwiftPM, which needs network access.
+You also need an installed, available iPhone simulator runtime. Command Line Tools alone
 cannot build or test this iOS target. The checked-in Xcode project is ready to
 open; project generation is not required for these commands.
 
@@ -74,7 +81,7 @@ There are no accounts, analytics, advertising SDKs, or Afterimage-operated backe
 
 ## Stack
 
-- SwiftUI and AVFoundation, iOS 17+
+- Swift 5 language mode on a Swift 6.1+ toolchain; SwiftUI and AVFoundation, iOS 17+
 - Core Location
 - GRDB.swift 7.x with a read-only bundled SQLite database
 - Kingfisher 8.x for archive-image cache/fetch

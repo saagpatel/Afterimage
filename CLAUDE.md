@@ -17,13 +17,13 @@ Afterimage is an iPhone historical field-walk instrument. It uses a bundled read
 
 ## Stack
 
-- Swift / SwiftUI, iOS 17+
+- Swift 5 language mode (`SWIFT_VERSION = 5.0`) on a Swift 6.1+ toolchain; SwiftUI, iOS 17+
 - AVFoundation camera wrapper
 - Core Location
-- GRDB.swift 7.x, read-only `DatabasePool`
-- Kingfisher 8.x archive thumbnail cache/fetch
+- GRDB.swift 7.x (7.10 locked), read-only `DatabasePool`
+- Kingfisher 8.x (8.8 locked) archive thumbnail cache/fetch
 - Vision grayscale feature prints
-- Python development-time data pipeline
+- Python development-time data pipeline; collectors need `DataPipeline/requirements.txt` (aiohttp, requests, tqdm), while the index build and its tests use only `sqlite3` and `unittest` from the standard library
 - XcodeGen; `project.yml` is the project source of truth
 
 ## Main surfaces
@@ -40,11 +40,25 @@ Afterimage is an iPhone historical field-walk instrument. It uses a bundled read
 
 ## Build and checks
 
-```bash
-xcodegen generate
-xcodebuild -project Afterimage.xcodeproj -scheme Afterimage \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max,OS=latest' test
+CI runs on `macos-latest` and doesn't pin Xcode; as of 2026-10 that resolved to Xcode 26.6 (iOS Simulator
+26.5 SDK), the only verified version. The lowest Xcode that can resolve the locked packages is 16.3, because GRDB 7.10
+declares `swift-tools-version:6.1`; that floor is untested. `xcodeVersion: "26.3"` in `project.yml` is
+only XcodeGen's project-format hint, not a requirement. The first build resolves GRDB and Kingfisher
+through SwiftPM, which fetches them from GitHub, so it needs network access unless they are cached.
+
+There is no `Package.swift`: this is an Xcode project,
+so everything runs through `xcodebuild` against a simulator. The Makefile wraps that, and picks
+the first available iPhone simulator exactly the way `.github/workflows/ci.yml` does.
+
+```sh
+make build   # compile for the first available iPhone simulator
+make test    # full XCTest suite; Vision feature-print cases require a real device
+make run     # open the checked-in Xcode project
+(cd DataPipeline && python3 -m unittest -v test_pipeline.py)
 ```
+
+XcodeGen is needed only when regenerating the project after `project.yml`
+changes; the checked-in project can be built and tested directly.
 
 Toolchain-light confidence and pipeline checks are documented in `docs/RUNNABLE-PROOF.md`. Do not claim build or runtime success when only syntax parsing or fixture verification ran.
 
