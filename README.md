@@ -18,7 +18,7 @@ Afterimage matches your photo to a geolocated historical photograph from the sam
 ## Quick Start
 
 ### Prerequisites
-- Xcode 16+, iOS 17.0+
+- Full Xcode matching `project.yml` (currently 26.3), iOS 17.0+
 - Physical iPhone (camera and GPS required for end-to-end matching)
 
 ### Installation
@@ -30,6 +30,39 @@ open Afterimage.xcodeproj
 
 ### Usage
 Build and run on a physical iPhone. Tap the camera button, photograph a landmark, and the app returns its best historical match with the comparison controls.
+
+## Verification
+
+Run from the repository root with full Xcode matching `project.yml` (currently
+26.3) selected (`xcode-select -p`)
+and an installed, available iPhone simulator runtime. Command Line Tools alone
+cannot build or test this iOS target. The checked-in Xcode project is ready to
+open; project generation is not required for these commands.
+
+```bash
+make build
+make test
+```
+
+`make test` runs the full XCTest target, matching `.github/workflows/ci.yml`.
+For one suite, run the same `xcodebuild test -scheme Afterimage -destination
+"platform=iOS Simulator,id=<available-UUID>" CODE_SIGNING_ALLOWED=NO` command
+with `-only-testing:AfterimageTests/HeadingFilterTests` appended. Use an actual
+UUID from `xcrun simctl list devices available`; simulator names vary by Xcode.
+
+The data-index safety tests use synthetic rows and a temporary SQLite file:
+
+```bash
+(cd DataPipeline && python3 -m unittest -v test_pipeline.py)
+```
+
+These safety tests require Python 3.10+ and only the standard library; the
+collector dependencies in `DataPipeline/requirements.txt` are not needed.
+Do not run collection/download/index-release scripts merely to verify a change.
+No standalone Swift lint/format command is configured. For changed comparison
+controls, matching states or exports, also exercise the affected flow in the
+simulator with fixture data; real camera/GPS matching needs a physical iPhone
+and is separate from simulator tests. A passing build is not device evidence.
 
 ## Tech Stack
 
