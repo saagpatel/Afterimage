@@ -18,7 +18,8 @@ Afterimage matches your photo to a geolocated historical photograph from the sam
 ## Quick Start
 
 ### Prerequisites
-- Full Xcode matching `project.yml` (currently 26.3), iOS 17.0+
+- Full Xcode 26.6 (what CI's unpinned `macos-latest` image provided as of 2026-10; 16.3 is the untested minimum that can resolve the locked GRDB 7.10 package), iOS 17.0+ deployment target
+- Network access on first build: SwiftPM fetches GRDB and Kingfisher from GitHub
 - Physical iPhone (camera and GPS required for end-to-end matching)
 
 ### Installation
@@ -33,9 +34,11 @@ Build and run on a physical iPhone. Tap the camera button, photograph a landmark
 
 ## Verification
 
-Run from the repository root with full Xcode matching `project.yml` (currently
-26.3) selected (`xcode-select -p`)
-and an installed, available iPhone simulator runtime. Command Line Tools alone
+Run from the repository root with full Xcode 26.6 (what CI's unpinned
+`macos-latest` image provided as of 2026-10) selected (`xcode-select -p`). `xcodeVersion: "26.3"` in `project.yml`
+is only XcodeGen's project-format hint, not the toolchain requirement. The first
+build resolves GRDB and Kingfisher through SwiftPM, which needs network access.
+You also need an installed, available iPhone simulator runtime. Command Line Tools alone
 cannot build or test this iOS target. The checked-in Xcode project is ready to
 open; project generation is not required for these commands.
 
@@ -68,7 +71,7 @@ and is separate from simulator tests. A passing build is not device evidence.
 
 | Layer | Technology |
 |-------|------------|
-| Language | Swift 5.10, async/await |
+| Language | Swift 5 language mode on a Swift 6.1+ toolchain, async/await |
 | UI | SwiftUI (iOS 17+), AVFoundation camera wrapper |
 | Database | GRDB.swift 7.x (typed SQLite wrappers) |
 | Image loading | Kingfisher 8.x (async + disk cache) |

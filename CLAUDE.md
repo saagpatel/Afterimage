@@ -3,32 +3,38 @@
 Free iOS app (iPhone-only): match a photo to a geolocated historical photograph from the same location. Core interaction is a draggable vertical slider revealing the historical image beneath the present-day photo. All matching happens on-device against a bundled SQLite index; no backend, no accounts.
 
 ## Stack
-- Language: Swift 5.10+
+- Language: Swift 5 language mode (`SWIFT_VERSION = 5.0`), built with a Swift 6.1+ toolchain
 - UI: SwiftUI (iOS 17+ minimum — no UIKit views except AVFoundation camera wrapper)
-- Database: SQLite via GRDB.swift 7.x — typed Swift wrappers, fast spatial queries
-- Image loading: Kingfisher 8.x — async fetch + disk cache for thumbnails
+- Database: SQLite via GRDB.swift 7.x (7.10 locked) — typed Swift wrappers, fast spatial queries
+- Image loading: Kingfisher 8.x (8.8 locked) — async fetch + disk cache for thumbnails
 - Image ML: Vision framework (`VNGenerateImageFeaturePrintRequest`) — on-device feature print similarity
 - Location: CoreLocation (CLLocationManager + CLHeading)
 - Camera: AVFoundation (photo capture pipeline)
-- Data pipeline: Python 3.12 + aiohttp + sqlite3 (dev-time only, not shipped)
+- Data pipeline: Python 3 (dev-time only, not shipped); collectors need `DataPipeline/requirements.txt` (aiohttp, requests, tqdm), while the index build and its tests are stdlib-only (sqlite3, unittest)
 
 ## Build / Test / Run
-Requires Xcode (verified against 26.6). There is no `Package.swift`: this is an Xcode project,
+CI runs on `macos-latest` and doesn't pin Xcode; as of 2026-10 that resolved to Xcode 26.6 (iOS Simulator
+26.5 SDK), the only verified version. The lowest Xcode that can resolve the locked packages is 16.3, because GRDB 7.10
+declares `swift-tools-version:6.1`; that floor is untested. `xcodeVersion: "26.3"` in `project.yml` is
+only XcodeGen's project-format hint, not a requirement. The first build resolves GRDB and Kingfisher
+through SwiftPM, which fetches them from GitHub, so it needs network access unless they are cached.
+
+There is no `Package.swift`: this is an Xcode project,
 so everything runs through `xcodebuild` against a simulator. The Makefile wraps that, and picks
 the first available iPhone simulator exactly the way `.github/workflows/ci.yml` does.
 
 ```sh
 make build   # compile for the simulator
-make test    # full suite: 55 tests, ~3min. 5 skip by design (Vision feature print
-             # is unavailable on the simulator and needs a real device)
+make test    # full suite: 58 tests, a few minutes. 5 skip by design (Vision feature
+             # print is unavailable on the simulator and needs a real device)
 make run     # opens the project in Xcode; an iOS app launches from there, not the CLI
 ```
 
 The Python data pipeline under `DataPipeline/` is dev-time only, is not shipped in the app,
-and has its own fast suite:
+and has its own fast suite, which needs only the Python standard library:
 
 ```sh
-python3 -m pytest DataPipeline/test_pipeline.py   # 5 tests, <1s
+(cd DataPipeline && python3 -m unittest -v test_pipeline.py)   # 5 tests, <1s
 ```
 
 See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
@@ -78,24 +84,24 @@ See IMPLEMENTATION-ROADMAP.md for full phase details and verification checklist.
 
 ## Stack
 
-- Language: Swift 5.10+
+- Language: Swift 5 language mode (`SWIFT_VERSION = 5.0`), built with a Swift 6.1+ toolchain
 - UI: SwiftUI (iOS 17+ minimum — no UIKit views except AVFoundation camera wrapper)
-- Database: SQLite via GRDB.swift 7.x — typed Swift wrappers, fast spatial queries
-- Image loading: Kingfisher 8.x — async fetch + disk cache for thumbnails
+- Database: SQLite via GRDB.swift 7.x (7.10 locked) — typed Swift wrappers, fast spatial queries
+- Image loading: Kingfisher 8.x (8.8 locked) — async fetch + disk cache for thumbnails
 - Image ML: Vision framework (`VNGenerateImageFeaturePrintRequest`) — on-device feature print similarity
 - Location: CoreLocation (CLLocationManager + CLHeading)
 - Camera: AVFoundation (photo capture pipeline)
-- Data pipeline: Python 3.12 + aiohttp + sqlite3 (dev-time only, not shipped)
+- Data pipeline: Python 3 (dev-time only, not shipped); collectors need `DataPipeline/requirements.txt` (aiohttp, requests, tqdm), while the index build and its tests are stdlib-only (sqlite3, unittest)
 
 ## How To Run
 
-- Swift: no force-unwraps (`!`) outside of fatalError/precondition; use `guard let` or `try?` with explicit fallback
-- File naming: PascalCase for Swift types and files, camelCase for variables
-- Architecture: feature-based folder structure (Features/Camera/, Features/Matching/, etc.)
-- No third-party analytics or crash reporting SDKs in v1
-- All async work via Swift async/await — no Combine, no callbacks
-- GRDB: always open `photos.db` as read-only `DatabasePool`
-- Vision: always preprocess images to grayscale before `VNGenerateImageFeaturePrintRequest`
+```sh
+make build   # xcodebuild for the first available iPhone simulator (same as CI)
+make test    # full XCTest suite
+(cd DataPipeline && python3 -m unittest -v test_pipeline.py)
+```
+
+Xcode 26.6 was the CI-observed version as of 2026-10 (`macos-latest`, not pinned); see Build / Test / Run above for the floor and the SwiftPM network fetch. Coding conventions are listed under Conventions above.
 
 ## Known Risks
 
