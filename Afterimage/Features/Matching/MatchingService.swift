@@ -6,6 +6,7 @@ import UIKit
 @MainActor @Observable
 final class MatchingService {
     typealias ThumbnailLoader = ([MatchCandidate]) async -> [MatchCandidate]
+    typealias CandidateRanker = @MainActor ([MatchCandidate], UIImage) async -> [MatchCandidate]
 
     enum Mode: Sendable, Equatable {
         case fieldMatch
@@ -23,16 +24,21 @@ final class MatchingService {
     private(set) var state: State = .idle
     private let spatialQuery: SpatialQuery
     private let thumbnailLoader: ThumbnailLoader
+    private let ranker: CandidateRanker
     private let logger = Logger(subsystem: "com.afterimage", category: "Matching")
 
     init(
         database: any DatabaseReader,
         thumbnailLoader: @escaping ThumbnailLoader = { candidates in
             await ThumbnailFetcher.fetchThumbnails(for: candidates)
+        },
+        ranker: @escaping CandidateRanker = { candidates, userPhoto in
+            await VisionRanker.rank(candidates: candidates, userPhoto: userPhoto)
         }
     ) {
         self.spatialQuery = SpatialQuery(database: database)
         self.thumbnailLoader = thumbnailLoader
+        self.ranker = ranker
     }
 
     func findMatches(
@@ -120,10 +126,7 @@ final class MatchingService {
             // Stage 4: Vision ranking
             state = .searching(stage: "Comparing images...")
             stageStart = CFAbsoluteTimeGetCurrent()
-            candidates = await VisionRanker.rank(
-                candidates: candidates,
-                userPhoto: photo
-            )
+            candidates = await ranker(candidates, photo)
             logger.info("Stage 4 (vision): ranked \(candidates.count) in \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - stageStart) * 1000))ms")
 
             // Cap at 5 results

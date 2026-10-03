@@ -11,7 +11,8 @@ final class MatchingServiceTests: XCTestCase {
         let db = try makeTestDatabase()
         let service = MatchingService(
             database: db,
-            thumbnailLoader: Self.offlineThumbnailLoader
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: Self.offlineRanker
         )
         guard case .idle = service.state else {
             XCTFail("Expected .idle, got \(service.state)")
@@ -25,7 +26,8 @@ final class MatchingServiceTests: XCTestCase {
         let db = try makeTestDatabase(photos: [])
         let service = MatchingService(
             database: db,
-            thumbnailLoader: Self.offlineThumbnailLoader
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: Self.offlineRanker
         )
 
         await service.findMatches(
@@ -46,7 +48,11 @@ final class MatchingServiceTests: XCTestCase {
         // Photo is far from Times Square — well outside both 100m and 500m radii
         let distantPhoto = makePhoto(id: "distant", lat: 40.8000, lon: -73.9000)
         let db = try makeTestDatabase(photos: [distantPhoto])
-        let service = MatchingService(database: db)
+        let service = MatchingService(
+            database: db,
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: Self.offlineRanker
+        )
 
         await service.findMatches(
             for: makeTestImage(),
@@ -70,13 +76,28 @@ final class MatchingServiceTests: XCTestCase {
             makePhoto(id: "ts3", lat: 40.7580, lon: -73.9856),
         ]
         let db = try makeTestDatabase(photos: photos)
+        let userPhoto = makeTestImage()
+        var rankerCalls = 0
+        var rankerCandidateIDs: [String] = []
+        var rankerThumbnailCount = 0
+        var rankerUserPhoto: UIImage?
         let service = MatchingService(
             database: db,
-            thumbnailLoader: Self.offlineThumbnailLoader
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: { candidates, suppliedPhoto in
+                rankerCalls += 1
+                rankerCandidateIDs = candidates.map(\.id)
+                rankerThumbnailCount = candidates.filter { $0.thumbnail != nil }.count
+                rankerUserPhoto = suppliedPhoto
+                // Deliberately return a distinct order to prove that the service
+                // consumes the ranker's result, without exercising native Vision.
+                return await Self.offlineRanker(candidates, suppliedPhoto)
+                    .sorted { $0.id > $1.id }
+            }
         )
 
         await service.findMatches(
-            for: makeTestImage(),
+            for: userPhoto,
             at: CLLocation(latitude: 40.7580, longitude: -73.9855),
             heading: nil
         )
@@ -85,6 +106,13 @@ final class MatchingServiceTests: XCTestCase {
             return XCTFail("Fixture-backed nearby photos should remain inspectable")
         }
         XCTAssertEqual(candidates.count, 3)
+        XCTAssertEqual(rankerCalls, 1)
+        XCTAssertEqual(Set(rankerCandidateIDs), Set(["ts1", "ts2", "ts3"]))
+        XCTAssertEqual(rankerThumbnailCount, 3)
+        XCTAssertTrue(rankerUserPhoto === userPhoto)
+        XCTAssertEqual(candidates.map(\.id), ["ts3", "ts2", "ts1"])
+        XCTAssertTrue(candidates.allSatisfy { $0.evidence.visual.featurePrintDistance == nil })
+        XCTAssertTrue(candidates.allSatisfy { !$0.confidence.mayPresentOverlay })
     }
 
     // MARK: - Heading filter is skipped for nil heading
@@ -98,7 +126,8 @@ final class MatchingServiceTests: XCTestCase {
         let db = try makeTestDatabase(photos: photos)
         let service = MatchingService(
             database: db,
-            thumbnailLoader: Self.offlineThumbnailLoader
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: Self.offlineRanker
         )
 
         // Without a heading the evidence remains explicitly missing; the
@@ -114,7 +143,9 @@ final class MatchingServiceTests: XCTestCase {
             return XCTFail("Expected fixture-backed candidates")
         }
         XCTAssertEqual(candidates.count, 2)
+        XCTAssertEqual(candidates.map(\.id), ["h1", "h2"])
         XCTAssertTrue(candidates.allSatisfy { $0.evidence.heading.deltaDegrees == nil })
+        XCTAssertTrue(candidates.allSatisfy { $0.evidence.visual.featurePrintDistance == nil })
         XCTAssertTrue(candidates.allSatisfy { !$0.confidence.mayPresentOverlay })
     }
 
@@ -130,7 +161,8 @@ final class MatchingServiceTests: XCTestCase {
         let db = try makeTestDatabase(photos: photos)
         let service = MatchingService(
             database: db,
-            thumbnailLoader: Self.offlineThumbnailLoader
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: Self.offlineRanker
         )
 
         await service.findMatches(
@@ -143,14 +175,16 @@ final class MatchingServiceTests: XCTestCase {
             return XCTFail("Expected fallback candidates to remain inspectable")
         }
         XCTAssertEqual(candidates.count, 2)
+        XCTAssertEqual(candidates.map(\.id), ["med1", "med2"])
         XCTAssertTrue(candidates.allSatisfy { $0.evidence.location.searchRadiusMeters == 500 })
+        XCTAssertTrue(candidates.allSatisfy { $0.evidence.visual.featurePrintDistance == nil })
         XCTAssertTrue(candidates.allSatisfy { !$0.confidence.mayPresentOverlay })
     }
 
     // MARK: - Result cap at 5
 
     func testResultsCappedAtFive() async throws {
-        // The injected loader keeps this path deterministic and offline.
+        // The injected loader and ranker keep this path deterministic and offline.
         let photos = (0..<8).map { index in
             makePhoto(
                 id: "cap-\(index)",
@@ -161,7 +195,8 @@ final class MatchingServiceTests: XCTestCase {
         let db = try makeTestDatabase(photos: photos)
         let service = MatchingService(
             database: db,
-            thumbnailLoader: Self.offlineThumbnailLoader
+            thumbnailLoader: Self.offlineThumbnailLoader,
+            ranker: Self.offlineRanker
         )
         await service.findMatches(
             for: makeTestImage(),
@@ -172,14 +207,22 @@ final class MatchingServiceTests: XCTestCase {
             return XCTFail("Expected fixture-backed results")
         }
         XCTAssertEqual(results.count, 5)
+        XCTAssertEqual(results.map(\.id), (0..<5).map { "cap-\($0)" })
+        XCTAssertTrue(results.allSatisfy { $0.evidence.visual.featurePrintDistance == nil })
+        XCTAssertTrue(results.allSatisfy { !$0.confidence.mayPresentOverlay })
     }
 
     func testArchiveBrowsePreservesCandidatesWhenLoaderDropsImages() async throws {
         let photo = makePhoto(id: "archive-image-unavailable")
         let db = try makeTestDatabase(photos: [photo])
+        var rankerCalls = 0
         let service = MatchingService(
             database: db,
-            thumbnailLoader: { _ in [] }
+            thumbnailLoader: { _ in [] },
+            ranker: { candidates, suppliedPhoto in
+                rankerCalls += 1
+                return await Self.offlineRanker(candidates, suppliedPhoto)
+            }
         )
 
         await service.findMatches(
@@ -193,12 +236,24 @@ final class MatchingServiceTests: XCTestCase {
             return XCTFail("An image-loader failure must not become no match")
         }
         let candidate = try XCTUnwrap(candidates.first)
+        XCTAssertEqual(rankerCalls, 0, "Archive browse must bypass visual ranking")
         XCTAssertNil(candidate.thumbnail)
         XCTAssertTrue(candidate.confidence.missingEvidence.contains(.archiveImage))
         XCTAssertEqual(candidate.confidence.disposition, .insufficientEvidence)
     }
 
     // MARK: - Helpers
+
+    // These service tests assert orchestration and retained evidence. Native
+    // feature-print generation and ranking remain covered by VisionRankerTests
+    // under its existing availability/discrimination guard.
+    private static let offlineRanker: MatchingService.CandidateRanker = { candidates, _ in
+        candidates.map { candidate in
+            var updated = candidate
+            updated.recordVisualDistance(nil)
+            return updated
+        }.sorted { $0.id < $1.id }
+    }
 
     private static let offlineThumbnailLoader: MatchingService.ThumbnailLoader = { candidates in
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100))
