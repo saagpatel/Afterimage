@@ -20,23 +20,53 @@ The internal `fixtureEstimatedProbability` is calibrated only against the bundle
 
 See `docs/FIELD-INSTRUMENT.md` for the model and refusal policy, `docs/RUNNABLE-PROOF.md` for verification, and `docs/LIMITATIONS.md` for the current claim ceiling.
 
-## Local verification
+## Verification
 
-Prerequisites for the full app path are Xcode 26.3 or newer, an iOS 17+ Simulator/runtime, and XcodeGen. The confidence engine and data pipeline have additional toolchain-light checks:
+Run from the repository root with full Xcode matching `project.yml` (currently
+26.3) selected (`xcode-select -p`)
+and an installed, available iPhone simulator runtime. Command Line Tools alone
+cannot build or test this iOS target. The checked-in Xcode project is ready to
+open; project generation is not required for these commands.
 
 ```bash
-xcodegen generate
+make build
+make test
+```
 
+`make test` runs the full XCTest target, matching `.github/workflows/ci.yml`.
+For one suite, run the same `xcodebuild test -scheme Afterimage -destination
+"platform=iOS Simulator,id=<available-UUID>" CODE_SIGNING_ALLOWED=NO` command
+with `-only-testing:AfterimageTests/HeadingFilterTests` appended. Use an actual
+UUID from `xcrun simctl list devices available`; simulator names vary by Xcode.
+
+The data-index safety tests use synthetic rows and a temporary SQLite file:
+
+```bash
+(cd DataPipeline && python3 -m unittest -v test_pipeline.py)
+```
+
+These safety tests require Python 3.10+ and only the standard library; the
+collector dependencies in `DataPipeline/requirements.txt` are not needed.
+Do not run collection/download/index-release scripts merely to verify a change.
+No standalone Swift lint/format command is configured. For changed comparison
+controls, matching states or exports, also exercise the affected flow in the
+simulator with fixture data; real camera/GPS matching needs a physical iPhone
+and is separate from simulator tests. A passing build is not device evidence.
+
+For the field-walk confidence policy, the portable Swift fixture verifier can
+run without building the iOS app:
+
+```bash
 swiftc Afterimage/Features/Matching/MatchConfidence.swift \
   scripts/verify-match-confidence.swift \
   -o /tmp/verify-match-confidence
 /tmp/verify-match-confidence AfterimageTests/Fixtures/match-confidence-v1.json
-
-cd DataPipeline
-python3 -m unittest -v test_pipeline
 ```
 
-For the full build, tests, deterministic UI states, and evidence boundaries, follow `docs/RUNNABLE-PROOF.md`.
+XcodeGen is needed only when regenerating the project after `project.yml`
+changes; the checked-in project can be built and tested directly. For the full
+build, deterministic UI states and evidence boundaries, follow
+[`docs/RUNNABLE-PROOF.md`](docs/RUNNABLE-PROOF.md).
 
 ## Privacy
 
