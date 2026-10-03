@@ -17,11 +17,13 @@ struct ThumbnailFetcher {
             }
 
             for await (index, image) in group {
-                results[index].thumbnail = image
+                results[index].recordThumbnail(image)
             }
         }
 
-        return results.filter { $0.thumbnail != nil }
+        // Preserve candidates whose archive image is unavailable. Dropping them
+        // would turn a network/cache limitation into the false claim "no match."
+        return results
     }
 
     // MARK: - Private

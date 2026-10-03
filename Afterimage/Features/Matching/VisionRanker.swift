@@ -9,9 +9,6 @@ enum VisionRankerError: Error {
 }
 
 struct VisionRanker {
-    static var geoWeight: Double = 0.70
-    static var visionWeight: Double = 0.30
-
     // Shared CIContext — reused across calls to avoid repeated GPU context allocation
     private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
@@ -59,92 +56,72 @@ struct VisionRanker {
 
     // MARK: - Ranking
 
-    /// Ranks `candidates` by composite score (geo weight + vision weight).
-    ///
-    /// Vision distances are computed in parallel via a task group.
-    /// Candidates whose thumbnails produce no feature print are ranked by geo score only,
-    /// with a vision distance of 1.0 (worst possible normalised value).
+    /// Adds raw visual evidence, re-evaluates absolute confidence, and sorts by
+    /// confidence. A missing/unsupported Vision descriptor remains missing
+    /// evidence; it is never converted into a worst score or normalized against
+    /// the current candidate set.
     static func rank(
         candidates: [MatchCandidate],
         userPhoto: UIImage
-    ) async throws -> [MatchCandidate] {
-        guard let grayUser = grayscale(userPhoto) else {
-            throw VisionRankerError.grayscaleFailed
+    ) async -> [MatchCandidate] {
+        guard !candidates.isEmpty else { return [] }
+        guard let grayUser = grayscale(userPhoto),
+              let userPrint = try? await featurePrint(from: grayUser) else {
+            return sortByConfidence(candidates.map { candidate in
+                var updated = candidate
+                updated.recordVisualDistance(nil)
+                return updated
+            })
         }
 
-        let userPrint = try await featurePrint(from: grayUser)
-
         // Compute vision distances in parallel
-        var visionDistances: [UUID: Float] = [:]
+        var visionDistances: [String: Float] = [:]
 
-        await withTaskGroup(of: (UUID, Float).self) { group in
+        await withTaskGroup(of: (String, Float?).self) { group in
             for candidate in candidates {
-                guard let thumbnail = candidate.thumbnail else { continue }
-
                 group.addTask {
+                    guard let thumbnail = candidate.thumbnail else {
+                        return (candidate.id, nil)
+                    }
                     guard
                         let grayThumb = grayscale(thumbnail),
                         let thumbPrint = try? await featurePrint(from: grayThumb)
                     else {
-                        return (candidate.id, 1.0)
+                        return (candidate.id, nil)
                     }
 
                     var distance: Float = 0
-                    // computeDistance(to:) is a throwing function
                     guard (try? thumbPrint.computeDistance(&distance, to: userPrint)) != nil else {
-                        return (candidate.id, 1.0)
+                        return (candidate.id, nil)
                     }
                     return (candidate.id, distance)
                 }
             }
 
-            for await (id, dist) in group {
-                visionDistances[id] = dist
+            for await (id, distance) in group {
+                if let distance {
+                    visionDistances[id] = distance
+                }
             }
         }
 
-        // Normalise vision distances to [0, 1]
-        let allDistances = visionDistances.values
-        let maxDist = allDistances.max() ?? 1.0
-        let minDist = allDistances.min() ?? 0.0
-        let distRange = maxDist - minDist
-
-        // Normalise geo distances to [0, 1]
-        let maxGeo = candidates.map(\.distanceMeters).max() ?? 1.0
-        let minGeo = candidates.map(\.distanceMeters).min() ?? 0.0
-        let geoRange = maxGeo - minGeo
-
-        func normaliseGeo(_ d: Double) -> Double {
-            geoRange > 0 ? (d - minGeo) / geoRange : 0
-        }
-
-        func normaliseVision(_ d: Float) -> Double {
-            distRange > 0 ? Double((d - minDist) / distRange) : 0
-        }
-
-        var ranked = candidates.map { candidate -> MatchCandidate in
+        let evaluated = candidates.map { candidate -> MatchCandidate in
             var updated = candidate
-            let rawVision = visionDistances[candidate.id] ?? 1.0
-            updated.visionDistance = rawVision
-
-            let geoScore = normaliseGeo(candidate.distanceMeters)
-            let visionScore = normaliseVision(rawVision)
-            let composite = geoWeight * geoScore + visionWeight * visionScore
-
-            updated.compositeScore = composite
-            updated.confidenceLabel = {
-                switch composite {
-                case ..<MatchCandidate.strongThreshold: return .strongMatch
-                case ..<MatchCandidate.goodThreshold:   return .goodMatch
-                default:                                return .nearby
-                }
-            }()
-
+            updated.recordVisualDistance(visionDistances[candidate.id])
             return updated
         }
+        return sortByConfidence(evaluated)
+    }
 
-        ranked.sort { $0.compositeScore < $1.compositeScore }
-        return ranked
+    private static func sortByConfidence(_ candidates: [MatchCandidate]) -> [MatchCandidate] {
+        candidates.sorted { left, right in
+            let leftProbability = left.confidence.fixtureEstimatedProbability ?? 0
+            let rightProbability = right.confidence.fixtureEstimatedProbability ?? 0
+            if leftProbability == rightProbability {
+                return left.distanceMeters < right.distanceMeters
+            }
+            return leftProbability > rightProbability
+        }
     }
 
     // MARK: - Benchmark

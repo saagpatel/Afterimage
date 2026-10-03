@@ -7,8 +7,26 @@ struct SliderOverlayView: View {
     /// 0 = all historical, 1 = all today. Owned by the parent so the
     /// share export can freeze the plate at this position.
     @Binding var revealFraction: CGFloat
+    @Binding var historicalOffset: CGSize
+    @Binding var historicalScale: CGFloat
 
     @GestureState private var dragOffset: CGFloat = 0
+
+    init(
+        userPhoto: UIImage,
+        historicalPhoto: UIImage,
+        eraLabel: String?,
+        revealFraction: Binding<CGFloat>,
+        historicalOffset: Binding<CGSize> = .constant(.zero),
+        historicalScale: Binding<CGFloat> = .constant(1)
+    ) {
+        self.userPhoto = userPhoto
+        self.historicalPhoto = historicalPhoto
+        self.eraLabel = eraLabel
+        _revealFraction = revealFraction
+        _historicalOffset = historicalOffset
+        _historicalScale = historicalScale
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -21,6 +39,8 @@ struct SliderOverlayView: View {
                     .resizable()
                     .aspectRatio(4.0 / 3.0, contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scaleEffect(historicalScale)
+                    .offset(historicalOffset)
 
                 // Top layer: user photo masked to the left of the divider
                 Image(uiImage: userPhoto)
@@ -82,7 +102,7 @@ struct SliderOverlayView: View {
             // divider, since the drag gesture itself is not accessible.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Comparison slider")
-            .accessibilityValue(revealDescription)
+            .accessibilityValue("\(revealDescription). \(alignmentDescription)")
             .accessibilityAdjustableAction { direction in
                 switch direction {
                 case .increment:
@@ -94,11 +114,18 @@ struct SliderOverlayView: View {
                 }
             }
             .accessibilityIdentifier("comparison-slider")
+            .clipped()
         }
     }
 
     private var revealDescription: String {
         let percent = Int(revealFraction * 100)
         return "\(percent) percent today, \(100 - percent) percent historical"
+    }
+
+    private var alignmentDescription: String {
+        "Historical alignment scale \(Int(historicalScale * 100)) percent, "
+            + "horizontal offset \(Int(historicalOffset.width)) points, "
+            + "vertical offset \(Int(historicalOffset.height)) points"
     }
 }

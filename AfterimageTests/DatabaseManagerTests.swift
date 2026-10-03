@@ -166,25 +166,28 @@ final class DatabaseManagerTests: XCTestCase {
         let photo = makePhoto()
         let candidate = MatchCandidate(photo: photo, distanceMeters: 42.0)
         XCTAssertEqual(candidate.distanceMeters, 42.0, accuracy: 0.001)
+        XCTAssertNil(candidate.evidence.location.horizontalAccuracyMeters)
+        XCTAssertTrue(candidate.confidence.missingEvidence.contains(.locationPrecision))
         XCTAssertNil(candidate.headingDelta)
         XCTAssertNil(candidate.visionDistance)
-        XCTAssertEqual(candidate.compositeScore, 1.0, accuracy: 0.001)
-        XCTAssertEqual(candidate.confidenceLabel, .nearby)
+        XCTAssertEqual(candidate.confidence.disposition, .insufficientEvidence)
+        XCTAssertFalse(candidate.confidence.mayPresentOverlay)
         XCTAssertNil(candidate.thumbnail)
     }
 
-    func testMatchCandidateHasUniqueIDs() {
+    func testMatchCandidateIdentityIsStableForArchiveRecord() {
         let photo = makePhoto()
         let c1 = MatchCandidate(photo: photo, distanceMeters: 10)
         let c2 = MatchCandidate(photo: photo, distanceMeters: 10)
-        XCTAssertNotEqual(c1.id, c2.id, "Each MatchCandidate must have a unique UUID")
+        XCTAssertEqual(c1.id, c2.id)
+        XCTAssertEqual(c1.id, photo.id)
     }
 
-    func testMatchCandidateConfidenceThresholds() {
-        XCTAssertEqual(MatchCandidate.strongThreshold, 0.25, accuracy: 0.001)
-        XCTAssertEqual(MatchCandidate.goodThreshold, 0.50, accuracy: 0.001)
-        XCTAssertLessThan(MatchCandidate.strongThreshold, MatchCandidate.goodThreshold,
-            "strongThreshold must be less than goodThreshold")
+    func testMatchCandidateSeparatesEvidenceFromConfidenceDecision() {
+        let candidate = MatchCandidate(photo: makePhoto(), distanceMeters: 12)
+        XCTAssertEqual(candidate.evidence.location.distanceMeters, 12)
+        XCTAssertEqual(candidate.evidence.archive.source, "oldnyc")
+        XCTAssertEqual(candidate.confidence.disposition, .insufficientEvidence)
     }
 
     func testMatchCandidateHeadingDeltaInitialiser() {

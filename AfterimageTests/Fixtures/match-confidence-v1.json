@@ -1,0 +1,171 @@
+[
+  {
+    "id": "true-match-all-signals",
+    "category": "true_match",
+    "isTrueMatch": true,
+    "expectedDisposition": "confident",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 5, "horizontalAccuracyMeters": 5, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 5, "userAccuracyDegrees": 8, "archiveConfidence": "medium" },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1935, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.20 }
+    }
+  },
+  {
+    "id": "true-match-degraded-image",
+    "category": "degraded_image",
+    "isTrueMatch": true,
+    "expectedDisposition": "uncertain",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 10, "horizontalAccuracyMeters": 8, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 10, "userAccuracyDegrees": 12, "archiveConfidence": "medium" },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1912, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": null }
+    }
+  },
+  {
+    "id": "near-miss-boundary",
+    "category": "near_miss",
+    "isTrueMatch": true,
+    "expectedDisposition": "uncertain",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 60, "horizontalAccuracyMeters": 10, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 35, "userAccuracyDegrees": 20, "archiveConfidence": "low" },
+      "archive": { "source": "wikimedia", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1948, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.60 }
+    }
+  },
+  {
+    "id": "wrong-location",
+    "category": "wrong_location",
+    "isTrueMatch": false,
+    "expectedDisposition": "conflictingSignals",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 250, "horizontalAccuracyMeters": 20, "searchRadiusMeters": 500 },
+      "heading": { "deltaDegrees": 10, "userAccuracyDegrees": 10, "archiveConfidence": "medium" },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1920, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.20 }
+    }
+  },
+  {
+    "id": "wrong-heading",
+    "category": "wrong_heading",
+    "isTrueMatch": false,
+    "expectedDisposition": "conflictingSignals",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 8, "horizontalAccuracyMeters": 6, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 130, "userAccuracyDegrees": 8, "archiveConfidence": "medium" },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1906, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.25 }
+    }
+  },
+  {
+    "id": "missing-date-and-rights",
+    "category": "missing_metadata",
+    "isTrueMatch": true,
+    "expectedDisposition": "uncertain",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 6, "horizontalAccuracyMeters": 5, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 7, "userAccuracyDegrees": 8, "archiveConfidence": "medium" },
+      "archive": { "source": "wikimedia", "hasAttribution": true, "hasRightsStatement": false, "hasDisplayImage": true, "captureYear": null, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.18 }
+    }
+  },
+  {
+    "id": "duplicate-archive-item",
+    "category": "duplicate_archive_item",
+    "isTrueMatch": true,
+    "expectedDisposition": "uncertain",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 5, "horizontalAccuracyMeters": 5, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 4, "userAccuracyDegrees": 8, "archiveConfidence": "medium" },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1930, "duplicateGroupSize": 3 },
+      "visual": { "featurePrintDistance": 0.17 }
+    }
+  },
+  {
+    "id": "conflicting-heading-and-visual",
+    "category": "conflicting_signals",
+    "isTrueMatch": false,
+    "expectedDisposition": "conflictingSignals",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 7, "horizontalAccuracyMeters": 5, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 115, "userAccuracyDegrees": 10, "archiveConfidence": "medium" },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1924, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 1.20 }
+    }
+  },
+  {
+    "id": "unavailable-location",
+    "category": "unavailable_location",
+    "isTrueMatch": false,
+    "expectedDisposition": "unavailableLocation",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": false, "distanceMeters": null, "horizontalAccuracyMeters": null, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": null, "userAccuracyDegrees": null, "archiveConfidence": null },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1935, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": null }
+    }
+  },
+  {
+    "id": "no-candidate",
+    "category": "no_match",
+    "isTrueMatch": false,
+    "expectedDisposition": "noMatch",
+    "evidence": {
+      "candidateIsAvailable": false,
+      "location": { "isAvailable": true, "distanceMeters": null, "horizontalAccuracyMeters": 10, "searchRadiusMeters": 500 },
+      "heading": { "deltaDegrees": null, "userAccuracyDegrees": null, "archiveConfidence": null },
+      "archive": { "source": "none", "hasAttribution": false, "hasRightsStatement": false, "hasDisplayImage": false, "captureYear": null, "duplicateGroupSize": 0 },
+      "visual": { "featurePrintDistance": null }
+    }
+  },
+  {
+    "id": "location-only",
+    "category": "insufficient_evidence",
+    "isTrueMatch": false,
+    "expectedDisposition": "insufficientEvidence",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 4, "horizontalAccuracyMeters": 6, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": null, "userAccuracyDegrees": null, "archiveConfidence": null },
+      "archive": { "source": "oldnyc", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1938, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": null }
+    }
+  },
+  {
+    "id": "missing-attribution",
+    "category": "missing_metadata",
+    "isTrueMatch": false,
+    "expectedDisposition": "insufficientEvidence",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 5, "horizontalAccuracyMeters": 5, "searchRadiusMeters": 100 },
+      "heading": { "deltaDegrees": 8, "userAccuracyDegrees": 9, "archiveConfidence": "medium" },
+      "archive": { "source": "unknown", "hasAttribution": false, "hasRightsStatement": false, "hasDisplayImage": true, "captureYear": 1931, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.20 }
+    }
+  },
+  {
+    "id": "poor-location-visual-only",
+    "category": "near_miss",
+    "isTrueMatch": false,
+    "expectedDisposition": "uncertain",
+    "evidence": {
+      "candidateIsAvailable": true,
+      "location": { "isAvailable": true, "distanceMeters": 120, "horizontalAccuracyMeters": 20, "searchRadiusMeters": 500 },
+      "heading": { "deltaDegrees": null, "userAccuracyDegrees": null, "archiveConfidence": null },
+      "archive": { "source": "wikimedia", "hasAttribution": true, "hasRightsStatement": true, "hasDisplayImage": true, "captureYear": 1950, "duplicateGroupSize": 1 },
+      "visual": { "featurePrintDistance": 0.10 }
+    }
+  }
+]

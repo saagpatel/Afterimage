@@ -1,36 +1,29 @@
 # Afterimage
 
-[![Swift](https://img.shields.io/badge/Swift-f05138?style=flat-square&logo=swift)](#) [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](#)
+Afterimage is an iPhone historical field-walk instrument. It compares a current photo and place with nearby archive records, explains the evidence for and against each candidate, and refuses to show a precise overlay when the available evidence is weak or contradictory.
 
-> Point your camera at a street corner and see what it looked like in 1920.
+## What the current build does
 
-Afterimage matches your photo to a geolocated historical photograph from the same location and reveals it beneath your shot using a draggable slider. All matching runs on-device against a bundled SQLite index — no backend, no accounts, no data leaves your phone.
+- Searches a bundled, read-only SQLite metadata index near the current or user-selected location.
+- Preserves location precision, conservative heading compatibility, archive metadata quality, duplicate-record risk, image availability, and on-device Vision distance as typed evidence.
+- Produces explicit `confident`, `uncertain`, `insufficientEvidence`, `conflictingSignals`, `unavailableLocation`, and `noMatch` states.
+- Unlocks the comparison overlay only for a supported candidate; other states explain why the overlay is withheld.
+- Guides a field walk through orienting, inspecting candidates, comparing, adjusting alignment, reviewing provenance and explicit lineage gaps, and saving a protected app-local pair.
+- Offers a separate, deliberate system share sheet. Afterimage itself does not upload the user's photo or location.
+- Includes local synthetic launch fixtures and a frozen confidence corpus for deterministic verification without protected user data.
 
-## Features
+The bundled index currently contains records for New York City, Chicago, and San Francisco. Coverage is highly uneven. Washington, D.C., New Orleans, and Boston appear as unavailable targets rather than pretending to be covered.
 
-- **Live camera matching** — take a photo and get a historical match in under 5 seconds
-- **Four-stage pipeline** — spatial bounding-box query → heading filter (±45°) → thumbnail fetch → Vision feature-print re-ranking
-- **Draggable slider** — reveals the historical image beneath the present-day photo
-- **Composite scoring** — 70% GPS/heading + 30% Vision similarity; labeled Strong Match, Good Match, or Nearby
-- **Camera roll matching** — any photo with GPS EXIF metadata works; manual location picker for GPS-less images
-- **City browse mode** — explore historical photos for any of 6 covered US cities (NYC, SF, Chicago, DC, New Orleans, Boston) without taking a photo
+## Evidence boundary
 
-## Quick Start
+The internal `fixtureEstimatedProbability` is calibrated only against the bundled 13-case policy-regression corpus. It is not displayed as a real-world probability and is not evidence of field matching efficacy. Historical image files are fetched from their archive hosts when they are not already cached; only metadata is fully bundled.
 
-### Prerequisites
+See `docs/FIELD-INSTRUMENT.md` for the model and refusal policy, `docs/RUNNABLE-PROOF.md` for verification, and `docs/LIMITATIONS.md` for the current claim ceiling.
+
+## Build prerequisites
 - Full Xcode 26.6 (what CI's unpinned `macos-latest` image provided as of 2026-10; 16.3 is the untested minimum that can resolve the locked GRDB 7.10 package), iOS 17.0+ deployment target
 - Network access on first build: SwiftPM fetches GRDB and Kingfisher from GitHub
 - Physical iPhone (camera and GPS required for end-to-end matching)
-
-### Installation
-```bash
-git clone https://github.com/saagpatel/Afterimage.git
-cd Afterimage
-open Afterimage.xcodeproj
-```
-
-### Usage
-Build and run on a physical iPhone. Tap the camera button, photograph a landmark, and the app returns its best historical match with the comparison controls.
 
 ## Verification
 
@@ -67,16 +60,33 @@ controls, matching states or exports, also exercise the affected flow in the
 simulator with fixture data; real camera/GPS matching needs a physical iPhone
 and is separate from simulator tests. A passing build is not device evidence.
 
-## Tech Stack
+For the field-walk confidence policy, the portable Swift fixture verifier can
+run without building the iOS app:
 
-| Layer | Technology |
-|-------|------------|
-| Language | Swift 5 language mode on a Swift 6.1+ toolchain, async/await |
-| UI | SwiftUI (iOS 17+), AVFoundation camera wrapper |
-| Database | GRDB.swift 7.x (typed SQLite wrappers) |
-| Image loading | Kingfisher 8.x (async + disk cache) |
-| ML similarity | Vision framework (VNGenerateImageFeaturePrintRequest) |
-| Location | CoreLocation (CLLocationManager + CLHeading) |
+```bash
+swiftc Afterimage/Features/Matching/MatchConfidence.swift \
+  scripts/verify-match-confidence.swift \
+  -o /tmp/verify-match-confidence
+/tmp/verify-match-confidence AfterimageTests/Fixtures/match-confidence-v1.json
+```
+
+XcodeGen is needed only when regenerating the project after `project.yml`
+changes; the checked-in project can be built and tested directly. For the full
+build, deterministic UI states and evidence boundaries, follow
+[`docs/RUNNABLE-PROOF.md`](docs/RUNNABLE-PROOF.md).
+
+## Privacy
+
+There are no accounts, analytics, advertising SDKs, or Afterimage-operated backend. User photos, precise location, and heading are used on device. Archive hosts can receive ordinary network request metadata when Afterimage downloads a historical image. A locally saved pair stays in the app container unless the user intentionally exports a copy through the system share sheet. See `PRIVACY.md`.
+
+## Stack
+
+- Swift 5 language mode on a Swift 6.1+ toolchain; SwiftUI and AVFoundation, iOS 17+
+- Core Location
+- GRDB.swift 7.x with a read-only bundled SQLite database
+- Kingfisher 8.x for archive-image cache/fetch
+- Vision feature prints for an on-device visual signal
+- Python for the development-time archive index pipeline
 
 ## License
 

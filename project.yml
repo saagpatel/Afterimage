@@ -51,6 +51,8 @@ targets:
     supportedDestinations: [iOS]
     sources:
       - path: AfterimageTests
+    resources:
+      - path: AfterimageTests/Fixtures
     dependencies:
       - target: Afterimage
     settings:

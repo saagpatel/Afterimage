@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class PlateExportTests: XCTestCase {
     private func makeExport(revealFraction: CGFloat = 0.5) -> PlateExport {
-        var candidate = MatchCandidate(
+        let candidate = MatchCandidate(
             photo: HistoricalPhoto(
                 id: "test-plate-001",
                 source: .oldnyc,
@@ -16,16 +16,19 @@ final class PlateExportTests: XCTestCase {
                 lat: 40.7580,
                 lon: -73.9855,
                 city: "New York City",
-                heading: nil,
-                headingConfidence: .low,
+                heading: 0,
+                headingConfidence: .medium,
                 thumbnailURL: "test://thumbnail",
                 fullResURL: nil,
                 attribution: "Test attribution",
-                rightsURI: nil
+                rightsURI: "https://example.com/rights"
             ),
-            distanceMeters: 24
+            distanceMeters: 24,
+            headingDelta: 5,
+            headingAccuracyDegrees: 8,
+            thumbnail: .debugProofHistorical,
+            visualDistance: 0.2
         )
-        candidate.confidenceLabel = .strongMatch
 
         return PlateExport(
             userPhoto: .debugProofUser,

@@ -5,6 +5,14 @@ import UIKit
 
 @MainActor @Observable
 final class MatchingService {
+    typealias ThumbnailLoader = ([MatchCandidate]) async -> [MatchCandidate]
+    typealias CandidateRanker = @MainActor ([MatchCandidate], UIImage) async -> [MatchCandidate]
+
+    enum Mode: Sendable, Equatable {
+        case fieldMatch
+        case archiveBrowse
+    }
+
     enum State: Sendable {
         case idle
         case searching(stage: String)
@@ -15,16 +23,29 @@ final class MatchingService {
 
     private(set) var state: State = .idle
     private let spatialQuery: SpatialQuery
+    private let thumbnailLoader: ThumbnailLoader
+    private let ranker: CandidateRanker
     private let logger = Logger(subsystem: "com.afterimage", category: "Matching")
 
-    init(database: any DatabaseReader) {
+    init(
+        database: any DatabaseReader,
+        thumbnailLoader: @escaping ThumbnailLoader = { candidates in
+            await ThumbnailFetcher.fetchThumbnails(for: candidates)
+        },
+        ranker: @escaping CandidateRanker = { candidates, userPhoto in
+            await VisionRanker.rank(candidates: candidates, userPhoto: userPhoto)
+        }
+    ) {
         self.spatialQuery = SpatialQuery(database: database)
+        self.thumbnailLoader = thumbnailLoader
+        self.ranker = ranker
     }
 
     func findMatches(
         for photo: UIImage,
         at location: CLLocation,
-        heading: CLHeading?
+        heading: CLHeading?,
+        mode: Mode = .fieldMatch
     ) async {
         state = .searching(stage: "Finding nearby photos...")
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -58,25 +79,26 @@ final class MatchingService {
 
             // Convert to MatchCandidates
             var candidates = results.map {
-                MatchCandidate(photo: $0.photo, distanceMeters: $0.distance)
+                MatchCandidate(
+                    photo: $0.photo,
+                    distanceMeters: $0.distance,
+                    locationAccuracyMeters: location.horizontalAccuracy,
+                    searchRadiusMeters: usedFallback ? 500 : 100
+                )
             }
+            candidates = recordDuplicateGroups(in: candidates)
 
-            // Stage 2: Heading filter
+            // Stage 2: Heading compatibility. Preserve contradictions so the
+            // confidence engine can refuse rather than silently falling back.
             if let heading, heading.headingAccuracy >= 0 {
-                state = .searching(stage: "Filtering by direction...")
+                state = .searching(stage: "Checking viewpoint evidence...")
                 stageStart = CFAbsoluteTimeGetCurrent()
-                let filtered = HeadingFilter.filter(
+                candidates = HeadingFilter.annotate(
                     candidates: candidates,
                     userHeading: heading.trueHeading,
                     userHeadingAccuracy: heading.headingAccuracy
                 )
-                logger.info("Stage 2 (heading): \(candidates.count) → \(filtered.count) in \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - stageStart) * 1000))ms")
-
-                if !filtered.isEmpty {
-                    candidates = filtered
-                } else {
-                    logger.info("Stage 2: heading filter emptied candidates, falling back to unfiltered")
-                }
+                logger.info("Stage 2 (heading evidence): annotated \(candidates.count) in \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - stageStart) * 1000))ms")
             } else {
                 logger.info("Stage 2 (heading): skipped — no reliable heading")
             }
@@ -84,31 +106,28 @@ final class MatchingService {
             // Stage 3: Fetch thumbnails
             state = .searching(stage: "Loading historical photos...")
             stageStart = CFAbsoluteTimeGetCurrent()
-            candidates = await ThumbnailFetcher.fetchThumbnails(for: candidates)
+            let candidatesBeforeLoading = candidates
+            let loadedCandidates = await thumbnailLoader(candidates)
+            let loadedByID = loadedCandidates.reduce(into: [String: MatchCandidate]()) {
+                partialResult, candidate in
+                partialResult[candidate.id] = candidate
+            }
+            candidates = candidatesBeforeLoading.map { candidate in
+                loadedByID[candidate.id] ?? candidate
+            }
             logger.info("Stage 3 (thumbnails): \(candidates.count) fetched in \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - stageStart) * 1000))ms")
 
-            guard !candidates.isEmpty else {
-                state = .noResults
+            if mode == .archiveBrowse {
+                let results = candidates.sorted { $0.distanceMeters < $1.distanceMeters }
+                state = .found(Array(results.prefix(5)))
                 return
             }
 
             // Stage 4: Vision ranking
             state = .searching(stage: "Comparing images...")
             stageStart = CFAbsoluteTimeGetCurrent()
-            candidates = try await VisionRanker.rank(
-                candidates: candidates,
-                userPhoto: photo
-            )
+            candidates = await ranker(candidates, photo)
             logger.info("Stage 4 (vision): ranked \(candidates.count) in \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - stageStart) * 1000))ms")
-
-            // Mark 500m-radius results as .nearby
-            if usedFallback {
-                candidates = candidates.map {
-                    var c = $0
-                    c.confidenceLabel = .nearby
-                    return c
-                }
-            }
 
             // Cap at 5 results
             let topResults = Array(candidates.prefix(5))
@@ -120,6 +139,26 @@ final class MatchingService {
         } catch {
             logger.error("Matching failed: \(error.localizedDescription)")
             state = .error("Matching failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func recordDuplicateGroups(in candidates: [MatchCandidate]) -> [MatchCandidate] {
+        let grouped = Dictionary(grouping: candidates) { candidate in
+            let lat = Int((candidate.photo.lat * 10_000).rounded())
+            let lon = Int((candidate.photo.lon * 10_000).rounded())
+            let decade = candidate.photo.dateYear.map { $0 / 10 } ?? -1
+            return "\(lat):\(lon):\(decade)"
+        }
+        let counts = grouped.mapValues(\.count)
+
+        return candidates.map { candidate in
+            let lat = Int((candidate.photo.lat * 10_000).rounded())
+            let lon = Int((candidate.photo.lon * 10_000).rounded())
+            let decade = candidate.photo.dateYear.map { $0 / 10 } ?? -1
+            let key = "\(lat):\(lon):\(decade)"
+            var updated = candidate
+            updated.recordDuplicateGroupSize(counts[key] ?? 1)
+            return updated
         }
     }
 }

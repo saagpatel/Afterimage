@@ -15,7 +15,8 @@ final class AppState {
         case galleryLocationPicker(UIImage)
         case captureRecovery(UIImage, String)
         case matching(UIImage)
-        case comparison(UIImage, MatchCandidate)
+        case comparison(UIImage, [MatchCandidate])
+        case noMatch(UIImage, CLLocation?)
     }
 
     var currentScreen: Screen = .camera
@@ -32,14 +33,12 @@ final class AppState {
     private var appliedDebugLaunchArguments = false
     #endif
 
-    // City centres for all 6 target cities
+    // Only cities with records in the bundled index belong here. This list is
+    // used to say "nearest indexed city" in the no-match state.
     static let cityCenters: [(name: String, lat: Double, lon: Double)] = [
         ("New York City",    40.7128,  -74.0060),
         ("San Francisco",   37.7749, -122.4194),
         ("Chicago",         41.8781,  -87.6298),
-        ("Washington, D.C.", 38.9072, -77.0369),
-        ("New Orleans",     29.9511,  -90.0715),
-        ("Boston",          42.3601,  -71.0589),
     ]
 
     init(
@@ -123,7 +122,12 @@ final class AppState {
         let placeholderImage = UIImage.placeholderWhite
         currentScreen = .matching(placeholderImage)
         Task {
-            await runMatching(photo: placeholderImage, location: location, heading: nil)
+            await runMatching(
+                photo: placeholderImage,
+                location: location,
+                heading: nil,
+                mode: .archiveBrowse
+            )
         }
     }
 
@@ -153,17 +157,29 @@ final class AppState {
 
     // MARK: - Shared matching
 
-    private func runMatching(photo: UIImage, location: CLLocation, heading: CLHeading?) async {
+    private func runMatching(
+        photo: UIImage,
+        location: CLLocation,
+        heading: CLHeading?,
+        mode: MatchingService.Mode = .fieldMatch
+    ) async {
         lastMatchLocation = location
-        await matchingService.findMatches(for: photo, at: location, heading: heading)
+        await matchingService.findMatches(
+            for: photo,
+            at: location,
+            heading: heading,
+            mode: mode
+        )
 
         switch matchingService.state {
         case .found(let candidates):
-            if let best = candidates.first {
-                currentScreen = .comparison(photo, best)
+            if !candidates.isEmpty {
+                currentScreen = .comparison(photo, candidates)
             } else {
-                currentScreen = .camera
+                currentScreen = .noMatch(photo, location)
             }
+        case .noResults:
+            currentScreen = .noMatch(photo, location)
         default:
             break
         }
@@ -211,11 +227,51 @@ extension AppState {
             return
         }
 
-        guard ProcessInfo.processInfo.arguments.contains("--afterimage-demo-comparison") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--afterimage-demo-unavailable-location") {
+            currentScreen = .captureRecovery(
+                .debugProofUser,
+                "Location unavailable. Choose a location manually before Afterimage can assess a match."
+            )
+            return
+        }
+        if arguments.contains("--afterimage-demo-no-match") {
+            let location = CLLocation(latitude: 46.87, longitude: -113.99)
+            lastMatchLocation = location
+            currentScreen = .noMatch(.debugProofUser, location)
             return
         }
 
-        var candidate = MatchCandidate(
+        guard arguments.contains("--afterimage-demo-comparison")
+                || arguments.contains("--afterimage-demo-uncertain")
+                || arguments.contains("--afterimage-demo-conflict")
+                || arguments.contains("--afterimage-demo-insufficient") else {
+            return
+        }
+
+        let requestedDisposition: MatchDisposition = {
+            if arguments.contains("--afterimage-demo-conflict") { return .conflictingSignals }
+            if arguments.contains("--afterimage-demo-insufficient") { return .insufficientEvidence }
+            if arguments.contains("--afterimage-demo-uncertain") { return .uncertain }
+            return .confident
+        }()
+        let candidate = debugCandidate(for: requestedDisposition)
+        currentScreen = .comparison(.debugProofUser, [candidate])
+    }
+
+    private func debugCandidate(for disposition: MatchDisposition) -> MatchCandidate {
+        let hasCompleteMetadata = disposition != .uncertain
+        let headingDelta: Double? = {
+            switch disposition {
+            case .confident, .uncertain: 6
+            case .conflictingSignals: 125
+            case .insufficientEvidence: nil
+            default: nil
+            }
+        }()
+        let visualDistance: Double? = disposition == .insufficientEvidence ? nil : 0.20
+
+        return MatchCandidate(
             photo: HistoricalPhoto(
                 id: "debug-demo-nyc-001",
                 source: .oldnyc,
@@ -226,20 +282,21 @@ extension AppState {
                 lat: 40.7580,
                 lon: -73.9855,
                 city: "New York City",
-                heading: nil,
-                headingConfidence: .low,
+                heading: headingDelta == nil ? nil : 0,
+                headingConfidence: .medium,
                 thumbnailURL: "debug://afterimage/demo-historical",
                 fullResURL: nil,
                 attribution: "Afterimage debug proof fixture",
-                rightsURI: nil
+                rightsURI: hasCompleteMetadata ? "https://example.com/debug-rights" : nil
             ),
-            distanceMeters: 24
+            distanceMeters: 12,
+            locationAccuracyMeters: 6,
+            headingDelta: headingDelta,
+            headingAccuracyDegrees: headingDelta == nil ? nil : 8,
+            duplicateGroupSize: disposition == .uncertain ? 2 : 1,
+            thumbnail: .debugProofHistorical,
+            visualDistance: visualDistance
         )
-        candidate.thumbnail = UIImage.debugProofHistorical
-        candidate.compositeScore = 0.12
-        candidate.confidenceLabel = .strongMatch
-
-        currentScreen = .comparison(.debugProofUser, candidate)
     }
 }
 #endif
