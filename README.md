@@ -18,7 +18,7 @@ Afterimage matches your photo to a geolocated historical photograph from the sam
 ## Quick Start
 
 ### Prerequisites
-- Xcode 16+, iOS 17.0+
+- Full Xcode matching `project.yml` (currently 26.3), iOS 17.0+
 - Physical iPhone (camera and GPS required for end-to-end matching)
 
 ### Installation
@@ -33,7 +33,8 @@ Build and run on a physical iPhone. Tap the camera button, photograph a landmark
 
 ## Verification
 
-Run from the repository root with full Xcode 16+ selected (`xcode-select -p`)
+Run from the repository root with full Xcode matching `project.yml` (currently
+26.3) selected (`xcode-select -p`)
 and an installed, available iPhone simulator runtime. Command Line Tools alone
 cannot build or test this iOS target. The checked-in Xcode project is ready to
 open; project generation is not required for these commands.
