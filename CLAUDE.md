@@ -13,8 +13,8 @@ Free iOS app (iPhone-only): match a photo to a geolocated historical photograph 
 - Data pipeline: Python 3 (dev-time only, not shipped); collectors need `DataPipeline/requirements.txt` (aiohttp, requests, tqdm), while the index build and its tests are stdlib-only (sqlite3, unittest)
 
 ## Build / Test / Run
-Xcode 26.6 is what CI uses (GitHub `macos-26` runner image, iOS Simulator 26.5 SDK) and is the only
-verified version. The lowest Xcode that can resolve the locked packages is 16.3, because GRDB 7.10
+CI runs on `macos-latest` and doesn't pin Xcode; as of 2026-10 that resolved to Xcode 26.6 (iOS Simulator
+26.5 SDK), the only verified version. The lowest Xcode that can resolve the locked packages is 16.3, because GRDB 7.10
 declares `swift-tools-version:6.1`; that floor is untested. `xcodeVersion: "26.3"` in `project.yml` is
 only XcodeGen's project-format hint, not a requirement. The first build resolves GRDB and Kingfisher
 through SwiftPM, which fetches them from GitHub, so it needs network access unless they are cached.
@@ -101,7 +101,7 @@ make test    # full XCTest suite
 (cd DataPipeline && python3 -m unittest -v test_pipeline.py)
 ```
 
-Xcode 26.6 is the CI-verified version; see Build / Test / Run above for the floor and the SwiftPM network fetch. Coding conventions are listed under Conventions above.
+Xcode 26.6 was the CI-observed version as of 2026-10 (`macos-latest`, not pinned); see Build / Test / Run above for the floor and the SwiftPM network fetch. Coding conventions are listed under Conventions above.
 
 ## Known Risks
 
