@@ -23,7 +23,7 @@ Afterimage is an iPhone historical field-walk instrument. It uses a bundled read
 - GRDB.swift 7.x (7.10 locked), read-only `DatabasePool`
 - Kingfisher 8.x (8.8 locked) archive thumbnail cache/fetch
 - Vision grayscale feature prints
-- Python development-time data pipeline; collectors need `DataPipeline/requirements.txt` (aiohttp, requests, tqdm), while the index build and its tests use only `sqlite3` and `unittest` from the standard library
+- Python development-time data pipeline; collectors need `DataPipeline/requirements.txt` (aiohttp, requests, tqdm), while the index build and its tests are standard-library-only (including `sqlite3` and `unittest`)
 - XcodeGen; `project.yml` is the project source of truth
 
 ## Main surfaces
